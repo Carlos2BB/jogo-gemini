@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Arcade Park - Perfect View</title>
+    <title>Arcade Park - Final Front View</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #000; }
         #crosshair {
@@ -77,7 +77,7 @@
     renderer.shadowMap.enabled = true;
     document.body.appendChild(renderer.domElement);
 
-    // AMBIENTE COMPLETO (CÉU E LUZ)
+    // CÉU E LUZ
     const skyGeo = new THREE.SphereGeometry(450, 32, 15);
     const skyMat = new THREE.ShaderMaterial({
         uniforms: { topColor: { value: new THREE.Color(0x00aaff) }, bottomColor: { value: new THREE.Color(0xffffff) } },
@@ -95,6 +95,7 @@
     ground.rotation.x = -Math.PI / 2;
     scene.add(ground);
 
+    // ÁRVORES
     const leafMat = new THREE.ShaderMaterial({
         uniforms: { time: { value: 0 }, color: { value: new THREE.Color(0x2E7D32) } },
         vertexShader: `uniform float time; void main() { vec3 pos = position; pos.x += sin(time + position.y) * 0.1; gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0); }`,
@@ -120,7 +121,6 @@
     const mGlass = new THREE.Mesh(new THREE.BoxGeometry(3.8, 4, 3.8), new THREE.MeshStandardMaterial({color:0xffffff, transparent:true, opacity:0.25}));
     mGlass.position.y = 3.8; machine.add(mGlass);
 
-    // ENFEITES
     const panel = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.3, 0.8), new THREE.MeshStandardMaterial({color:0x222}));
     panel.position.set(0, 1.6, 2.1); machine.add(panel);
     const joystick = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.5), new THREE.MeshStandardMaterial({color:0x777}));
@@ -189,9 +189,9 @@
             if(state === "WALK" && camera.position.distanceTo(machine.position) < 5) {
                 if(coinsCount > 0) {
                     state = "CLAW"; document.getElementById('game-info').style.display = 'block';
-                    // CÂMERA FRONTAL PERFEITA: Afastada para ver tudo
-                    camera.position.set(0, 3.8, -6.0); 
-                    camera.rotation.set(-0.1, Math.PI, 0); 
+                    // AJUSTE CRÍTICO: Câmera centralizada e afastada o suficiente para ver topo e base
+                    camera.position.set(0, 3.5, -5.5); 
+                    camera.rotation.set(0, Math.PI, 0); 
                     cYaw = 0;
                 }
             }
@@ -211,7 +211,12 @@
     document.addEventListener('mousemove', e => {
         if(!document.pointerLockElement) return;
         if(state === "WALK") { yaw -= e.movementX*0.002; pitch -= e.movementY*0.002; pitch = Math.max(-1.5, Math.min(1.5, pitch)); camera.rotation.set(pitch, yaw, 0, 'YXZ'); }
-        else if(state === "CLAW") { cYaw -= e.movementX*0.0015; cYaw = Math.max(-0.6, Math.min(0.6, cYaw)); camera.rotation.y = Math.PI + cYaw; }
+        else if(state === "CLAW") { 
+            // Permite um olhar leve p/ os lados sem perder a frente da máquina
+            cYaw -= e.movementX*0.001; 
+            cYaw = Math.max(-0.4, Math.min(0.4, cYaw)); 
+            camera.rotation.y = Math.PI + cYaw; 
+        }
     });
 
     function startFishing() {
