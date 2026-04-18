@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Arcade Park - Machine Fix</title>
+    <title>Arcade Park - Final Version</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #000; }
         #crosshair {
@@ -57,9 +57,9 @@
         <h2 style="color:#00ffff; margin-top:0">MODO GARRA</h2>
         <ul style="list-style:none; padding:0; line-height: 1.6;">
             <li>Setas: Mover Garra</li>
-            <li>Mouse: Olhar para Lados</li>
+            <li>Mouse: Olhar p/ os Lados</li>
             <li>Espaço: Pescar</li>
-            <li>ESC: Sair</li>
+            <li>ESC: Sair da Máquina</li>
         </ul>
     </div>
 
@@ -77,29 +77,54 @@
     renderer.shadowMap.enabled = true;
     document.body.appendChild(renderer.domElement);
 
+    // CÉU COM GRADIENTE
+    const skyGeo = new THREE.SphereGeometry(450, 32, 15);
+    const skyMat = new THREE.ShaderMaterial({
+        uniforms: { topColor: { value: new THREE.Color(0x00aaff) }, bottomColor: { value: new THREE.Color(0xffffff) } },
+        vertexShader: `varying vec3 vPos; void main() { vPos = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+        fragmentShader: `varying vec3 vPos; uniform vec3 topColor; uniform vec3 bottomColor; void main() { float h = normalize(vPos).y; gl_FragColor = vec4(mix(bottomColor, topColor, max(h, 0.0)), 1.0); }`,
+        side: THREE.BackSide
+    });
+    scene.add(new THREE.Mesh(skyGeo, skyMat));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.8));
     const sun = new THREE.DirectionalLight(0xffffff, 1.5);
     sun.position.set(50, 100, 50);
-    scene.add(sun, new THREE.AmbientLight(0xffffff, 0.8));
+    scene.add(sun);
 
+    // CHÃO E ÁRVORES REAIS
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000), new THREE.MeshStandardMaterial({color: 0x348C31}));
     ground.rotation.x = -Math.PI / 2;
     scene.add(ground);
 
-    // MÁQUINA COM ENFEITES
+    const leafMat = new THREE.ShaderMaterial({
+        uniforms: { time: { value: 0 }, color: { value: new THREE.Color(0x2E7D32) } },
+        vertexShader: `uniform float time; void main() { vec3 pos = position; pos.x += sin(time + position.y) * 0.1; gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0); }`,
+        fragmentShader: `uniform vec3 color; void main() { gl_FragColor = vec4(color, 1.0); }`
+    });
+
+    for(let i=0; i<60; i++) {
+        const x = Math.random() * 200 - 100, z = Math.random() * 200 - 100;
+        if (Math.abs(x) > 15 || (z > -5 || z < -25)) {
+            const tree = new THREE.Group();
+            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 4), new THREE.MeshStandardMaterial({color: 0x5D4037}));
+            trunk.position.y = 2; tree.add(trunk);
+            const foliage = new THREE.Mesh(new THREE.DodecahedronGeometry(2), leafMat);
+            foliage.position.y = 4.5; tree.add(foliage);
+            tree.position.set(x, 0, z); scene.add(tree);
+        }
+    }
+
+    // MÁQUINA COMPLETA
     const machine = new THREE.Group();
     const mBase = new THREE.Mesh(new THREE.BoxGeometry(4, 1.8, 4), new THREE.MeshStandardMaterial({color:0xcc0000}));
     mBase.position.y = 0.9; machine.add(mBase);
-
     const mGlass = new THREE.Mesh(new THREE.BoxGeometry(3.8, 4, 3.8), new THREE.MeshStandardMaterial({color:0xffffff, transparent:true, opacity:0.25}));
     mGlass.position.y = 3.8; machine.add(mGlass);
 
-    // ENFEITES (Painel, Joystick, Botão)
     const panel = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.3, 0.8), new THREE.MeshStandardMaterial({color:0x222}));
     panel.position.set(0, 1.6, 2.1); machine.add(panel);
-
     const joystick = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.5), new THREE.MeshStandardMaterial({color:0x777}));
     joystick.position.set(-0.6, 1.9, 2.1); machine.add(joystick);
-
     const buttonDeco = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.1), new THREE.MeshStandardMaterial({color:0xff0000}));
     buttonDeco.position.set(0.6, 1.8, 2.1); machine.add(buttonDeco);
     
@@ -124,18 +149,24 @@
     machine.position.set(0, 0, -12);
     scene.add(machine);
 
-    // PARKOUR E MOEDAS
+    // PARKOUR LONGO
     const platforms = [];
-    function createP(x,y,z,w,d) {
-        const p = new THREE.Mesh(new THREE.BoxGeometry(w,0.8,d), new THREE.MeshStandardMaterial({color: 0xff4400}));
+    const movingPlats = [];
+    function createP(x,y,z,w,d, m=false) {
+        const p = new THREE.Mesh(new THREE.BoxGeometry(w,0.8,d), new THREE.MeshStandardMaterial({color: m?0x00ffff:0xff4400}));
         p.position.set(x,y,z); scene.add(p); platforms.push(p);
+        if(m) movingPlats.push({m:p, sz:z, d:1});
     }
     createP(50, 0.5, -30, 6, 6); createP(50, 2.5, -36, 3, 3); createP(55, 4.5, -36, 3, 3);
+    createP(60, 6.5, -36, 3, 3, true); createP(60, 8.5, -42, 4, 4); createP(54, 10.5, -48, 3, 3);
+    createP(47, 12.5, -48, 3, 3, true); createP(40, 14.5, -42, 3, 3); createP(40, 16.5, -34, 4, 4);
+    createP(50, 18.5, -34, 8, 8);
     const potion = new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.3,0.8), new THREE.MeshStandardMaterial({color:0x00ff00, emissive:0x00ff00}));
-    potion.position.set(50, 6, -36); scene.add(potion);
+    potion.position.set(50, 20, -34); scene.add(potion);
 
+    // MOEDAS
     const coins = [];
-    for(let i=0; i<15; i++) {
+    for(let i=0; i<20; i++) {
         const c = new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.12,0.03), new THREE.MeshStandardMaterial({color:0xffd700}));
         c.position.set(Math.random()*60-30, 0.2, Math.random()*60-30);
         c.rotation.x = Math.PI/2; scene.add(c); coins.push(c);
@@ -155,14 +186,10 @@
             coins.forEach(c => { if(c.visible && camera.position.distanceTo(c.position) < 3) { c.visible = false; coinsCount++; document.getElementById('coin-val').innerText = coinsCount; }});
             if(potion.visible && camera.position.distanceTo(potion.position) < 3) { potion.visible = false; isLuck = true; luckT = 30; document.getElementById('luck-timer').style.display = 'block'; }
             
-            // FUNÇÃO USAR MÁQUINA (CORRIGIDA)
-            const dist = camera.position.distanceTo(machine.position);
-            if(state === "WALK" && dist < 5) {
+            if(state === "WALK" && camera.position.distanceTo(machine.position) < 5) {
                 if(coinsCount > 0) {
                     state = "CLAW"; document.getElementById('game-info').style.display = 'block';
-                    camera.position.set(0, 4.5, -7.0); 
-                    camera.rotation.set(-0.3, Math.PI, 0); 
-                    cYaw = 0;
+                    camera.position.set(0, 4.8, -7.5); camera.rotation.set(-0.35, Math.PI, 0); cYaw = 0;
                 }
             }
         }
@@ -181,11 +208,7 @@
     document.addEventListener('mousemove', e => {
         if(!document.pointerLockElement) return;
         if(state === "WALK") { yaw -= e.movementX*0.002; pitch -= e.movementY*0.002; pitch = Math.max(-1.5, Math.min(1.5, pitch)); camera.rotation.set(pitch, yaw, 0, 'YXZ'); }
-        else if(state === "CLAW") { 
-            cYaw -= e.movementX*0.0015; 
-            cYaw = Math.max(-0.8, Math.min(0.8, cYaw)); 
-            camera.rotation.y = Math.PI + cYaw; 
-        }
+        else if(state === "CLAW") { cYaw -= e.movementX*0.0015; cYaw = Math.max(-0.8, Math.min(0.8, cYaw)); camera.rotation.y = Math.PI + cYaw; }
     });
 
     function startFishing() {
@@ -206,6 +229,9 @@
 
     function animate() {
         requestAnimationFrame(animate);
+        const t = performance.now()*0.001;
+        leafMat.uniforms.time.value = t;
+
         if(state === "WALK") {
             vY -= 0.01; camera.position.y += vY;
             const dx = Math.abs(camera.position.x - machine.position.x);
@@ -217,6 +243,7 @@
             platforms.forEach(p => {
                 if(Math.abs(camera.position.x - p.position.x) < p.geometry.parameters.width/2 && Math.abs(camera.position.z - p.position.z) < p.geometry.parameters.depth/2 && camera.position.y > p.position.y + 1.2 && camera.position.y < p.position.y + 1.9) {
                     camera.position.y = p.position.y + 1.7; vY = 0; canJ = true;
+                    const mp = movingPlats.find(m => m.m === p); if(mp) camera.position.z += 0.05 * mp.d;
                 }
             });
             if(camera.position.y <= 1.7) { camera.position.y = 1.7; vY = 0; canJ = true; }
@@ -226,6 +253,7 @@
             if(keys['KeyA']) camera.position.addScaledVector(side, 0.15); if(keys['KeyD']) camera.position.addScaledVector(side, -0.15);
         }
 
+        movingPlats.forEach(p => { p.m.position.z += 0.05*p.d; if(Math.abs(p.m.position.z - p.sz) > 6) p.d *= -1; });
         if(isLuck) { luckT -= 0.016; document.getElementById('luck-val').innerText = Math.max(0, luckT).toFixed(1); if(luckT <= 0) { isLuck = false; document.getElementById('luck-timer').style.display = 'none'; }}
         if(active) document.getElementById('timer-val').innerText = ((Date.now() - sTime)/1000).toFixed(1);
         pinchers.forEach(p => p.rotation.x = 0.8 * (1 - cOpen));
