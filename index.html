@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Arcade Park - Transparente Edition</title>
+    <title>Arcade Park - Realistic Edition</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #000; }
         #crosshair {
@@ -64,113 +64,175 @@
     import * as THREE from 'three';
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87CEEB);
-    scene.fog = new THREE.FogExp2(0x87CEEB, 0.01);
+    
+    // CÉU MAIS REALISTA (GRADIENTE)
+    const vertexShader = `
+        varying vec3 vWorldPosition;
+        void main() {
+            vec4 worldPosition = modelMatrix * vec4( position, 1.0 );
+            vWorldPosition = worldPosition.xyz;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+        }
+    `;
+    const fragmentShader = `
+        uniform vec3 topColor;
+        uniform vec3 bottomColor;
+        varying vec3 vWorldPosition;
+        void main() {
+            float h = normalize( vWorldPosition ).y;
+            gl_FragColor = vec4( mix( bottomColor, topColor, max( h, 0.0 ) ), 1.0 );
+        }
+    `;
+    const skyGeo = new THREE.SphereGeometry(400, 32, 15);
+    const skyMat = new THREE.ShaderMaterial({ 
+        vertexShader, fragmentShader, 
+        uniforms: { topColor: { value: new THREE.Color(0x0077ff) }, bottomColor: { value: new THREE.Color(0xffffff) } },
+        side: THREE.BackSide 
+    });
+    scene.add(new THREE.Mesh(skyGeo, skyMat));
+
+    scene.fog = new THREE.FogExp2(0x89b1c4, 0.005);
 
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     document.body.appendChild(renderer.domElement);
 
     // LUZES
-    const sun = new THREE.DirectionalLight(0xffffff, 1.8);
-    sun.position.set(20, 40, 20);
+    const sun = new THREE.DirectionalLight(0xffffff, 2.0);
+    sun.position.set(50, 100, 50);
     sun.castShadow = true;
+    sun.shadow.camera.left = -50; sun.shadow.camera.right = 50;
+    sun.shadow.camera.top = 50; sun.shadow.camera.bottom = -50;
     scene.add(sun);
-    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
 
-    // CHÃO E ÁRVORES
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshStandardMaterial({ color: 0x2d5e1e }));
+    // CHÃO REALISTA
+    const groundGeo = new THREE.PlaneGeometry(500, 500);
+    const groundMat = new THREE.MeshStandardMaterial({ 
+        color: 0x348C31, 
+        roughness: 0.8,
+        metalness: 0.1
+    });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     scene.add(ground);
 
-    for(let i=0; i<40; i++) {
-        const x = Math.random() * 100 - 50, z = Math.random() * 100 - 50;
-        if (Math.abs(x) > 8 || Math.abs(z) > 8) {
-            const tree = new THREE.Group();
-            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 3), new THREE.MeshStandardMaterial({color:0x4d2902}));
-            trunk.position.y = 1.5;
-            const leaves = new THREE.Mesh(new THREE.SphereGeometry(1.5), new THREE.MeshStandardMaterial({color:0x1a4d1a}));
-            leaves.position.y = 4;
-            tree.add(trunk, leaves);
-            tree.position.set(x, 0, z);
-            scene.add(tree);
+    // ÁRVORES MAIS REALISTAS
+    function createTree(x, z) {
+        const tree = new THREE.Group();
+        // Tronco
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, 4, 8), new THREE.MeshStandardMaterial({color:0x5D4037}));
+        trunk.position.y = 2;
+        trunk.castShadow = true;
+        // Folhagem composta
+        for(let i=0; i<5; i++) {
+            const leaf = new THREE.Mesh(new THREE.DodecahedronGeometry(1.5 + Math.random()), new THREE.MeshStandardMaterial({color:0x2E7D32}));
+            leaf.position.set(Math.random()-0.5, 4 + Math.random()*2, Math.random()-0.5);
+            leaf.castShadow = true;
+            tree.add(leaf);
         }
+        tree.add(trunk);
+        tree.position.set(x, 0, z);
+        scene.add(tree);
+    }
+    for(let i=0; i<50; i++) {
+        const x = Math.random() * 160 - 80, z = Math.random() * 160 - 80;
+        if (Math.abs(x) > 10 || Math.abs(z) > 15) createTree(x, z);
     }
 
-    // MOEDAS
+    // MOEDAS (MENORES)
     let coinsCount = 0, prizesCollected = 0;
     const coins = [];
-    for(let i=0; i<15; i++) {
-        const c = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.04), new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 1 }));
-        c.position.set(Math.random()*40-20, 0.1, Math.random()*40-20);
+    for(let i=0; i<20; i++) {
+        const c = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.02), new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.9, roughness: 0.1 }));
+        c.position.set(Math.random()*60-30, 0.08, Math.random()*60-30);
         c.rotation.x = Math.PI/2;
+        c.castShadow = true;
         scene.add(c);
         coins.push(c);
     }
 
-    // MÁQUINA REDESENHADA (ABERTA E TRANSPARENTE)
+    // MÃO DO JOGADOR (PARA PEGAR MOEDAS)
+    const handGroup = new THREE.Group();
+    const palm = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.1, 0.3), new THREE.MeshStandardMaterial({color: 0xffdbac}));
+    handGroup.add(palm);
+    handGroup.position.set(0.5, -0.5, -0.8);
+    camera.add(handGroup);
+    scene.add(camera);
+    handGroup.visible = false;
+
+    // MÁQUINA DE PRÊMIOS MELHORADA
     const machine = new THREE.Group();
-    const frameMat = new THREE.MeshStandardMaterial({color: 0xbb0000});
+    const frameMat = new THREE.MeshStandardMaterial({color: 0xcc0000, metalness: 0.5, roughness: 0.2});
     
-    // Base onde ficam os prêmios
-    const base = new THREE.Mesh(new THREE.BoxGeometry(3, 1, 3), frameMat);
-    base.position.y = 0.5;
+    const base = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.2, 3.2), frameMat);
+    base.position.y = 0.6;
+    base.castShadow = true;
     machine.add(base);
 
-    // Colunas nos cantos (para não tapar a visão)
-    const colGeo = new THREE.BoxGeometry(0.15, 3.5, 0.15);
-    for(let x of [-1.4, 1.4]) {
-        for(let z of [-1.4, 1.4]) {
-            const col = new THREE.Mesh(colGeo, frameMat);
-            col.position.set(x, 2.75, z);
-            machine.add(col);
-        }
-    }
+    // Painel de Controle (Enfeite)
+    const panel = new THREE.Mesh(new THREE.BoxGeometry(2, 0.5, 0.6), new THREE.MeshStandardMaterial({color: 0x222222}));
+    panel.position.set(0, 1.1, 1.6);
+    machine.add(panel);
 
-    // Topo da máquina
-    const top = new THREE.Mesh(new THREE.BoxGeometry(3, 0.5, 3), frameMat);
-    top.position.y = 4.75;
+    // Alavanca (Joystick Decorativo)
+    const joystickBase = new THREE.Mesh(new THREE.SphereGeometry(0.1), new THREE.MeshStandardMaterial({color: 0x000000}));
+    joystickBase.position.set(-0.5, 1.4, 1.6);
+    const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.4), new THREE.MeshStandardMaterial({color: 0xaaaaaa}));
+    stick.position.y = 0.2; stick.rotation.x = 0.3;
+    joystickBase.add(stick);
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.06), new THREE.MeshStandardMaterial({color: 0xff0000}));
+    ball.position.y = 0.4;
+    stick.add(ball);
+    machine.add(joystickBase);
+
+    // Botão (Decorativo)
+    const btnBase = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.05), new THREE.MeshStandardMaterial({color: 0x111111}));
+    btnBase.position.set(0.5, 1.35, 1.6);
+    const btn = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.08), new THREE.MeshStandardMaterial({color: 0x00ff00}));
+    btn.position.y = 0.05;
+    btnBase.add(btn);
+    machine.add(btnBase);
+
+    const top = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.6, 3.2), frameMat);
+    top.position.y = 4.8;
     machine.add(top);
 
-    // Vidro Ultra Transparente (4 painéis)
-    const glassMat = new THREE.MeshStandardMaterial({color: 0xffffff, transparent: true, opacity: 0.1, roughness: 0});
-    const glassMain = new THREE.Mesh(new THREE.BoxGeometry(2.8, 3.5, 2.8), glassMat);
-    glassMain.position.y = 2.75;
+    const glassMat = new THREE.MeshStandardMaterial({color: 0x88ccff, transparent: true, opacity: 0.2, roughness: 0});
+    const glassMain = new THREE.Mesh(new THREE.BoxGeometry(3, 3.5, 3), glassMat);
+    glassMain.position.y = 2.8;
     machine.add(glassMain);
 
     const prizesInside = [];
-    for(let i=0; i<25; i++) {
-        const p = new THREE.Mesh(new THREE.SphereGeometry(0.25), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff }));
-        p.position.set((Math.random()-0.5)*2.4, 1.25, (Math.random()-0.5)*2.4);
+    for(let i=0; i<30; i++) {
+        const p = new THREE.Mesh(new THREE.SphereGeometry(0.22), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff, roughness: 0.3 }));
+        p.position.set((Math.random()-0.5)*2.5, 1.3, (Math.random()-0.5)*2.5);
+        p.castShadow = true;
         machine.add(p);
         prizesInside.push(p);
     }
 
-    // GARRA ULTRA VISÍVEL E ANIMADA
+    // GARRA
     const clawSystem = new THREE.Group();
-    const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 3), new THREE.MeshStandardMaterial({color:0x222222}));
+    const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 3), new THREE.MeshStandardMaterial({color:0x333333}));
     cable.position.y = 1.5;
-    
     const clawHeadGroup = new THREE.Group();
-    const clawBase = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.15), new THREE.MeshStandardMaterial({color:0xffff00})); // Amarela
+    const clawBase = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.2), new THREE.MeshStandardMaterial({color:0xffcc00, metalness: 0.8}));
     clawHeadGroup.add(clawBase);
-
     const pinchers = [];
     for(let i=0; i<3; i++) {
         const pPivot = new THREE.Group();
-        const pMesh = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.5, 0.06), new THREE.MeshStandardMaterial({color:0xffff00}));
-        pMesh.position.y = -0.25; pMesh.position.z = 0.2;
+        const pMesh = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.08), new THREE.MeshStandardMaterial({color:0xdddddd, metalness: 0.9}));
+        pMesh.position.y = -0.3; pMesh.position.z = 0.2;
         pPivot.add(pMesh);
         pPivot.rotation.y = (Math.PI*2/3)*i;
         clawHeadGroup.add(pPivot);
         pinchers.push(pPivot);
     }
-    const clawLight = new THREE.PointLight(0xffff00, 5, 3);
-    clawHeadGroup.add(clawLight);
-    
     clawSystem.add(cable, clawHeadGroup);
     clawSystem.position.set(0, 4.5, 0);
     machine.add(clawSystem);
@@ -191,12 +253,31 @@
         }
     });
 
+    function playHandAnimation() {
+        handGroup.visible = true;
+        handGroup.position.y = -0.8;
+        let t = 0;
+        const anim = setInterval(() => {
+            t += 0.1;
+            handGroup.position.y = -0.8 + Math.sin(t*Math.PI) * 0.3;
+            handGroup.position.z = -0.8 - Math.sin(t*Math.PI) * 0.2;
+            if(t >= 1) { clearInterval(anim); handGroup.visible = false; }
+        }, 30);
+    }
+
     document.addEventListener('keydown', (e) => {
         if(gameState === "WALK") {
             if(e.code === 'KeyW') moveF = true; if(e.code === 'KeyS') moveB = true; 
             if(e.code === 'KeyA') moveL = true; if(e.code === 'KeyD') moveR = true;
             if(e.code === 'KeyE') {
-                coins.forEach(c => { if(c.visible && camera.position.distanceTo(c.position) < 3) { c.visible = false; coinsCount++; document.getElementById('coin-val').innerText = coinsCount; } });
+                coins.forEach(c => { 
+                    if(c.visible && camera.position.distanceTo(c.position) < 3) { 
+                        c.visible = false; 
+                        coinsCount++; 
+                        document.getElementById('coin-val').innerText = coinsCount;
+                        playHandAnimation();
+                    } 
+                });
                 if(camera.position.distanceTo(machine.position) < 4 && coinsCount > 0) {
                     gameState = "CLAW"; coinsCount--; document.getElementById('coin-val').innerText = coinsCount;
                     document.exitPointerLock(); document.getElementById('game-info').style.display = 'block';
@@ -219,12 +300,11 @@
         const interval = setInterval(() => {
             if(stage === "DOWN") {
                 clawOpen = 1; clawSystem.position.y -= 0.06;
-                if(clawSystem.position.y <= 1.6) stage = "GRAB";
+                if(clawSystem.position.y <= 1.7) stage = "GRAB";
             } else if(stage === "GRAB") {
                 clawOpen -= 0.15;
                 if(clawOpen <= 0) {
                     clawOpen = 0;
-                    // Detecção de captura (MUITO FÁCIL: raio aumentado)
                     prizesInside.forEach(p => {
                         if(p.visible && p.position.distanceTo(new THREE.Vector3(clawSystem.position.x, 1.25, clawSystem.position.z)) < 0.8) {
                             caughtPrize = p;
@@ -246,7 +326,7 @@
                     prizesCollected++; 
                     document.getElementById('prizes-val').innerText = prizesCollected; 
                     caughtPrize = null; 
-                    alert("VOCÊ PEGOU!");
+                    alert("VOCÊ PEGOU UM PRÊMIO!");
                 }
                 clawOpen = 1; clearInterval(interval); isClawDescending = false;
             }
@@ -258,7 +338,11 @@
 
     function animate() {
         requestAnimationFrame(animate);
-        pinchers.forEach(p => p.rotation.x = 0.7 * (1 - clawOpen));
+        pinchers.forEach(p => p.rotation.x = 0.8 * (1 - clawOpen));
+        
+        // Rotação suave das moedas
+        coins.forEach(c => { if(c.visible) c.rotation.z += 0.02; });
+
         if(gameState === "WALK" && document.pointerLockElement) {
             const dir = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion); dir.y = 0; dir.normalize();
             const side = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0), dir);
@@ -269,6 +353,12 @@
         renderer.render(scene, camera);
     }
     animate();
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
 </script>
 </body>
 </html>
