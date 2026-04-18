@@ -25,8 +25,9 @@
             font-size: 18px; border: 2px solid #ffd700;
         }
         #luck-timer {
-            display: none; background: #00ff00; color: black; font-weight: bold;
-            padding: 5px 15px; border-radius: 10px; margin-top: 10px;
+            display: none; background: rgba(0, 255, 0, 0.8); color: black; font-weight: bold;
+            padding: 10px 20px; border-radius: 15px; margin-top: 15px;
+            border: 2px solid white; font-size: 20px;
         }
         #prompt {
             color: white; font-size: 24px; font-weight: bold;
@@ -37,13 +38,7 @@
             position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.9);
             display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100;
         }
-        input { padding: 10px; font-size: 20px; border-radius: 5px; border: none; margin: 10px; }
         button { padding: 10px 20px; font-size: 20px; cursor: pointer; background: #ffd700; border: none; border-radius: 5px; font-weight: bold; }
-        #reset-game-btn { background: #ff4444; color: white; border: 2px solid white; margin-left: 10px; }
-        #leaderboard {
-            position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.8);
-            padding: 15px; border-radius: 10px; border: 1px solid #ffd700; color: #fff; font-size: 14px;
-        }
         #game-info {
             position: absolute; top: 100px; right: 20px;
             background: rgba(0,0,0,0.8); color: white; padding: 20px;
@@ -55,25 +50,17 @@
 
     <div id="setup-screen">
         <h1 style="color: #ffd700;">ARCADE PARK CHALLENGE</h1>
-        <input type="text" id="player-name" placeholder="Digite seu nome..." maxlength="15">
         <button onclick="startGame()">INICIAR JOGO</button>
-    </div>
-
-    <div id="leaderboard">
-        <strong style="color: #ffd700;">RANKING:</strong>
-        <div id="score-list"></div>
     </div>
 
     <div id="crosshair"></div>
     <div id="ui-layer">
         <div class="stats-container">
             <div class="stats">MOEDAS: <span id="coin-val">0</span></div>
-            <div class="stats" style="color: #00ffcc; border-color: #00ffcc;">RESTAM: <span id="prizes-val">10</span></div>
+            <div class="stats" style="color: #00ffcc; border-color: #00ffcc;">PREMIOS: <span id="prizes-val">10</span></div>
             <div class="stats" style="color: #ff4444; border-color: #ff4444;">TEMPO: <span id="timer-val">0.0</span>s</div>
-            <button id="reset-game-btn" onclick="resetCurrentMatch()">RESETAR PARTIDA</button>
-            <button id="reset-btn" style="display:none" onclick="location.reload()">NOVO JOGO</button>
         </div>
-        <div id="luck-timer">SORTE ATIVA: <span id="luck-val">30</span>s</div>
+        <div id="luck-timer">SORTE ATIVA: <span id="luck-val">30.0</span>s</div>
         <div id="prompt">Pressione [E] para interagir</div>
     </div>
 
@@ -96,7 +83,7 @@
 
     const scene = new THREE.Scene();
     
-    // CÉU
+    // CÉU E LUZ
     const skyGeo = new THREE.SphereGeometry(400, 32, 15);
     const skyMat = new THREE.ShaderMaterial({ 
         vertexShader: `varying vec3 vWorldPosition; void main() { vec4 worldPosition = modelMatrix * vec4( position, 1.0 ); vWorldPosition = worldPosition.xyz; gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 ); }`, 
@@ -117,261 +104,168 @@
     sun.castShadow = true;
     scene.add(sun, new THREE.AmbientLight(0xffffff, 0.6));
 
-    // CHÃO DE GRAMA REALISTA
-    const groundGeo = new THREE.PlaneGeometry(1000, 1000, 100, 100);
-    const groundMat = new THREE.ShaderMaterial({
-        uniforms: { time: { value: 0 }, colorBase: { value: new THREE.Color(0x348C31) }, colorTip: { value: new THREE.Color(0x55AE4A) } },
-        vertexShader: `uniform float time; varying vec2 vUv; varying float vWind; void main() { vUv = uv; vWind = sin(position.x * 0.1 + time) * cos(position.y * 0.1 + time) * 0.5; vec3 newPos = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(newPos, 1.0); }`,
-        fragmentShader: `uniform vec3 colorBase; uniform vec3 colorTip; varying vec2 vUv; varying float vWind; void main() { float factor = vUv.y + vWind * 0.1; gl_FragColor = vec4(mix(colorBase, colorTip, factor), 1.0); }`,
-        side: THREE.DoubleSide
-    });
+    // GRAMA E ÁRVORES
+    const groundGeo = new THREE.PlaneGeometry(1000, 1000);
+    const groundMat = new THREE.MeshStandardMaterial({color: 0x348C31});
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     scene.add(ground);
 
-    // --- PÁSSAROS NATURAIS (VOO LINEAR) ---
+    // PÁSSAROS REFEITOS (Voo Linear)
     const birds = [];
-    const birdGeo = new THREE.BufferGeometry();
-    birdGeo.setAttribute('position', new THREE.Float32BufferAttribute([-0.3,0,0, 0,0,0.4, 0.3,0,0], 3));
-    const birdMat = new THREE.MeshBasicMaterial({ color: 0x222222, side: THREE.DoubleSide });
-
-    function resetBird(bird) {
+    function createBird() {
+        const b = new THREE.Mesh(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute([-0.3,0,0, 0,0,0.4, 0.3,0,0], 3)), new THREE.MeshBasicMaterial({color:0x000, side:2}));
+        resetBird(b);
+        scene.add(b);
+        birds.push(b);
+    }
+    function resetBird(b) {
         const side = Math.random() > 0.5 ? 1 : -1;
-        bird.position.set(200 * side, 25 + Math.random() * 20, (Math.random() - 0.5) * 200);
-        bird.userData = { 
-            velocity: new THREE.Vector3(-side * (0.2 + Math.random() * 0.3), 0, (Math.random() - 0.5) * 0.1),
-            active: true 
-        };
+        b.position.set(200 * side, 30 + Math.random()*20, (Math.random()-0.5)*200);
+        b.userData = { vel: new THREE.Vector3(-side * (0.3 + Math.random()*0.4), 0, (Math.random()-0.5)*0.1) };
     }
+    for(let i=0; i<6; i++) createBird();
 
-    for(let i=0; i<8; i++){
-        const bird = new THREE.Mesh(birdGeo, birdMat);
-        resetBird(bird);
-        scene.add(bird);
-        birds.push(bird);
-    }
-
-    // ÁRVORES COM FOLHAS REALISTAS
-    const leafGeo = new THREE.DodecahedronGeometry(2);
-    const leafMat = new THREE.ShaderMaterial({
-        uniforms: { time: { value: 0 }, color: { value: new THREE.Color(0x2E7D32) } },
-        vertexShader: `uniform float time; void main() { vec3 newPos = position; newPos.x += sin(time + position.y) * 0.1; gl_Position = projectionMatrix * modelViewMatrix * vec4(newPos, 1.0); }`,
-        fragmentShader: `uniform vec3 color; void main() { gl_FragColor = vec4(color, 1.0); }`
-    });
-
-    for(let i=0; i<50; i++) {
-        const x = Math.random() * 160 - 80, z = Math.random() * 160 - 80;
-        if (Math.abs(x) > 10 || Math.abs(z) > 15) {
-            const tree = new THREE.Group();
-            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, 4), new THREE.MeshStandardMaterial({color:0x5D4037}));
-            trunk.position.y = 2; tree.add(trunk);
-            const foliage = new THREE.Mesh(leafGeo, leafMat);
-            foliage.position.y = 4.5; tree.add(foliage);
-            tree.position.set(x, 0, z); scene.add(tree);
-        }
-    }
-
-    // PARKOUR APROXIMADO
-    const parkourStartPos = new THREE.Vector3(50, 1.7, -30);
-    const movingPlatforms = [];
+    // PARKOUR E POÇÃO
     const allPlatforms = [];
-    const parkourGroup = new THREE.Group();
-
-    function createPlatform(x, y, z, w, d, moving = false) {
-        const geo = new THREE.BoxGeometry(w, 0.8, d);
-        const mat = new THREE.MeshStandardMaterial({ color: moving ? 0x00ffff : 0xff4400 });
-        const plat = new THREE.Mesh(geo, mat);
-        plat.position.set(x, y, z);
-        parkourGroup.add(plat);
-        allPlatforms.push(plat);
-        if(moving) movingPlatforms.push({mesh: plat, startZ: z, dir: 1});
+    function createPlat(x,y,z,w,d) {
+        const p = new THREE.Mesh(new THREE.BoxGeometry(w,0.8,d), new THREE.MeshStandardMaterial({color:0xff4400}));
+        p.position.set(x,y,z); scene.add(p); allPlatforms.push(p);
     }
-
-    createPlatform(50, 0.5, -30, 6, 6);
-    createPlatform(50, 2.5, -36, 3, 3);
-    createPlatform(55, 4.5, -36, 3, 3);
-    createPlatform(60, 6.5, -36, 3, 3, true);
-    createPlatform(60, 8.5, -42, 4, 4);
-    createPlatform(55, 10.5, -48, 2, 2);
-    createPlatform(49, 11.5, -48, 2, 2);
-    createPlatform(43, 12.5, -42, 3, 3, true);
-    createPlatform(37, 13.5, -36, 2, 2);
-    createPlatform(37, 14.5, -30, 3, 3);
-    createPlatform(43, 15.5, -24, 2, 2);
-    createPlatform(50, 16.5, -24, 3, 3);
-    createPlatform(50, 18.0, -32, 8, 8);
-    scene.add(parkourGroup);
-
+    createPlat(50, 0.5, -30, 6, 6);
+    createPlat(50, 2.5, -36, 3, 3);
+    createPlat(55, 4.5, -36, 3, 3);
+    createPlat(50, 6.5, -32, 4, 4);
     const potion = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 0.8), new THREE.MeshStandardMaterial({color: 0x00ff00, emissive: 0x00ff00}));
-    potion.position.set(50, 19.5, -32);
-    scene.add(potion);
+    potion.position.set(50, 8, -32); scene.add(potion);
 
+    // MOEDAS
     const coins = [];
-    for(let i=0; i<30; i++) {
-        const c = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.015), new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.9 }));
-        c.position.set(Math.random()*80-40, 0.1, Math.random()*80-40);
-        c.rotation.x = Math.PI/2;
-        scene.add(c); coins.push(c);
+    for(let i=0; i<15; i++) {
+        const c = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.02), new THREE.MeshStandardMaterial({color:0xffd700}));
+        c.position.set(Math.random()*40-20, 0.2, Math.random()*40-20);
+        c.rotation.x = Math.PI/2; scene.add(c); coins.push(c);
     }
 
     // MÁQUINA
     const machine = new THREE.Group();
-    const base = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.2, 3.2), new THREE.MeshStandardMaterial({color: 0xcc0000}));
-    base.position.y = 0.6; machine.add(base);
-    const glass = new THREE.Mesh(new THREE.BoxGeometry(3, 3.5, 3), new THREE.MeshStandardMaterial({color: 0xffffff, transparent: true, opacity: 0.15}));
-    glass.position.y = 2.8; machine.add(glass);
-    
-    const prizesInside = [];
-    for(let i=0; i<10; i++) {
-        const p = new THREE.Mesh(new THREE.SphereGeometry(0.22), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff }));
-        p.position.set((Math.random()-0.5)*2.4, 1.3, (Math.random()-0.5)*2.4);
-        machine.add(p); prizesInside.push(p);
-    }
+    const mBase = new THREE.Mesh(new THREE.BoxGeometry(4, 1.5, 4), new THREE.MeshStandardMaterial({color:0xcc0000}));
+    mBase.position.y = 0.75; machine.add(mBase);
+    const mGlass = new THREE.Mesh(new THREE.BoxGeometry(3.8, 4, 3.8), new THREE.MeshStandardMaterial({color:0xffffff, transparent:true, opacity:0.2}));
+    mGlass.position.y = 3.5; machine.add(mGlass);
     const clawSystem = new THREE.Group();
-    const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 3), new THREE.MeshStandardMaterial({color:0x333333}));
-    cable.position.y = 1.5;
-    const clawHead = new THREE.Group();
-    const pinchers = [];
-    for(let i=0; i<3; i++) {
-        const pPivot = new THREE.Group();
-        const pMesh = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.6, 0.05), new THREE.MeshStandardMaterial({color:0xcccccc}));
-        pMesh.position.y = -0.3; pMesh.position.z = 0.15;
-        pPivot.add(pMesh); pPivot.rotation.y = (Math.PI*2/3)*i;
-        clawHead.add(pPivot); pinchers.push(pPivot);
+    const clawHead = new THREE.Mesh(new THREE.SphereGeometry(0.2), new THREE.MeshStandardMaterial({color:0x888}));
+    clawSystem.add(clawHead); clawSystem.position.set(0, 5, 0); machine.add(clawSystem);
+    
+    const prizes = [];
+    for(let i=0; i<10; i++){
+        const p = new THREE.Mesh(new THREE.SphereGeometry(0.3), new THREE.MeshStandardMaterial({color: Math.random()*0xffffff}));
+        p.position.set(Math.random()*2.5-1.25, 1.8, Math.random()*2.5-1.25);
+        machine.add(p); prizes.push(p);
     }
-    clawSystem.add(cable, clawHead);
-    clawSystem.position.set(0, 4.5, 0); machine.add(clawSystem);
     machine.position.set(0, 0, -10); scene.add(machine);
 
-    // LÓGICA
-    let coinsCount = 0, prizesLeft = 10;
-    let gameState = "SETUP", isClawDescending = false;
-    let startTime = 0, gameActive = false;
-    let moveF = false, moveB = false, moveL = false, moveR = false;
-    let velocityY = 0, canJump = true, yaw = 0, pitch = 0, clawOpen = 1;
+    // LÓGICA DE JOGO
+    let gameState = "WALK", coinsCount = 0, prizesLeft = 10;
+    let yaw = 0, pitch = 0, velocityY = 0, canJump = true;
     let luckTime = 0, isLuckActive = false;
-    
-    // Novas vars para câmera de olhar lateral na máquina
-    let clawYaw = 0;
+    let clawYaw = 0; // Para olhar pros lados na máquina
 
-    window.startGame = () => {
-        document.getElementById('setup-screen').style.display = 'none';
-        gameState = "WALK";
-    };
+    window.startGame = () => { document.getElementById('setup-screen').style.display = 'none'; };
 
-    window.resetCurrentMatch = () => {
-        camera.position.set(0, 1.7, 0); velocityY = 0;
-        startTime = Date.now();
-    };
-
-    document.addEventListener('mousedown', () => { 
-        if(gameState !== "SETUP") document.body.requestPointerLock(); 
-    });
-    
     document.addEventListener('mousemove', (e) => {
-        if (document.pointerLockElement) {
-            if(gameState === "WALK") {
-                if(!gameActive) { startTime = Date.now(); gameActive = true; }
-                yaw -= e.movementX * 0.002; pitch -= e.movementY * 0.002;
-                pitch = Math.max(-1.5, Math.min(1.5, pitch));
-                camera.rotation.set(pitch, yaw, 0, 'YXZ');
-            } else if(gameState === "CLAW") {
-                // Limitado para olhar apenas de um lado para o outro
-                clawYaw -= e.movementX * 0.002;
-                clawYaw = Math.max(-0.8, Math.min(0.8, clawYaw));
-                camera.rotation.y = Math.PI + clawYaw;
-            }
+        if (!document.pointerLockElement) return;
+        if(gameState === "WALK") {
+            yaw -= e.movementX * 0.002; pitch -= e.movementY * 0.002;
+            pitch = Math.max(-1.5, Math.min(1.5, pitch));
+            camera.rotation.set(pitch, yaw, 0, 'YXZ');
+        } else if(gameState === "CLAW") {
+            // Movimento lateral limitado para ver os prêmios
+            clawYaw -= e.movementX * 0.002;
+            clawYaw = Math.max(-0.6, Math.min(0.6, clawYaw));
+            camera.rotation.y = Math.PI + clawYaw;
         }
     });
 
     document.addEventListener('keydown', (e) => {
-        if(gameState === "WALK") {
-            if(e.code === 'KeyW') moveF = true; if(e.code === 'KeyS') moveB = true; 
-            if(e.code === 'KeyA') moveL = true; if(e.code === 'KeyD') moveR = true;
-            if(e.code === 'Space' && canJump) { velocityY = 0.25; canJump = false; }
-            if(e.code === 'KeyE') {
-                coins.forEach(c => { if(c.visible && camera.position.distanceTo(c.position) < 3) { c.visible = false; coinsCount++; document.getElementById('coin-val').innerText = coinsCount; }});
-                if(potion.visible && camera.position.distanceTo(potion.position) < 3) { potion.visible = false; isLuckActive = true; luckTime = 30; document.getElementById('luck-timer').style.display = 'block'; }
-                if(camera.position.distanceTo(machine.position) < 4 && coinsCount > 0) { 
-                    gameState = "CLAW"; 
-                    document.getElementById('game-info').style.display = 'block';
-                    clawYaw = 0;
-                    camera.position.set(0, 3.5, -6.5); // Posição fixa frontal
-                }
+        if(e.code === 'KeyE') {
+            // Coletar moedas
+            coins.forEach(c => { if(c.visible && camera.position.distanceTo(c.position) < 3) { c.visible = false; coinsCount++; document.getElementById('coin-val').innerText = coinsCount; }});
+            // Pegar Poção
+            if(potion.visible && camera.position.distanceTo(potion.position) < 2.5) {
+                potion.visible = false;
+                isLuckActive = true;
+                luckTime = 30;
+                document.getElementById('luck-timer').style.display = 'block';
             }
-        } else if(gameState === "CLAW" && !isClawDescending) {
-            if(e.code === 'ArrowLeft' && clawSystem.position.x > -1.2) clawSystem.position.x -= 0.05;
-            if(e.code === 'ArrowRight' && clawSystem.position.x < 1.2) clawSystem.position.x += 0.05;
-            if(e.code === 'ArrowUp' && clawSystem.position.z > -1.2) clawSystem.position.z -= 0.05;
-            if(e.code === 'ArrowDown' && clawSystem.position.z < 1.2) clawSystem.position.z += 0.05;
-            if(e.code === 'Space') startFishing();
-            if(e.code === 'Escape') { 
-                gameState = "WALK"; 
-                document.getElementById('game-info').style.display = 'none'; 
-                camera.position.set(0, 1.7, -6); yaw = 0; pitch = 0;
+            // Entrar na Máquina
+            if(gameState === "WALK" && camera.position.distanceTo(machine.position) < 5 && coinsCount > 0) {
+                gameState = "CLAW";
+                document.getElementById('game-info').style.display = 'block';
+                clawYaw = 0;
+                // FIX DA CÂMERA: Posição ideal na frente do vidro olhando para dentro
+                camera.position.set(0, 4, -5.5); 
+                camera.rotation.set(-0.2, Math.PI, 0); 
             }
         }
+        if(e.code === 'Escape' && gameState === "CLAW") {
+            gameState = "WALK";
+            document.getElementById('game-info').style.display = 'none';
+            camera.position.set(0, 1.7, -5);
+        }
+        if(gameState === "WALK" && e.code === 'Space' && canJump) { velocityY = 0.2; canJump = false; }
     });
 
-    document.addEventListener('keyup', (e) => {
-        if(e.code === 'KeyW') moveF = false; if(e.code === 'KeyS') moveB = false; 
-        if(e.code === 'KeyA') moveL = false; if(e.code === 'KeyD') moveR = false;
-    });
+    const keys = {};
+    document.addEventListener('keydown', e => keys[e.code] = true);
+    document.addEventListener('keyup', e => keys[e.code] = false);
+    document.addEventListener('mousedown', () => document.body.requestPointerLock());
 
-    function startFishing() {
-        isClawDescending = true; let stage = "DOWN"; let caughtPrizes = [];
-        const interval = setInterval(() => {
-            if(stage === "DOWN") { clawSystem.position.y -= 0.04; if(clawSystem.position.y <= 1.75) stage = "GRAB"; }
-            else if(stage === "GRAB") {
-                clawOpen -= 0.1;
-                if(clawOpen <= 0) {
-                    const maxPrizes = isLuckActive ? 2 : 1;
-                    prizesInside.forEach(p => { if(p.visible && caughtPrizes.length < maxPrizes && p.position.distanceTo(new THREE.Vector3(clawSystem.position.x, 1.3, clawSystem.position.z)) < 0.6) caughtPrizes.push(p); });
-                    stage = "UP";
+    function updatePhysics() {
+        if(gameState === "WALK") {
+            velocityY -= 0.008; camera.position.y += velocityY;
+            let onGround = false;
+            allPlatforms.forEach(p => {
+                if(Math.abs(camera.position.x - p.position.x) < p.geometry.parameters.width/2 && 
+                   Math.abs(camera.position.z - p.position.z) < p.geometry.parameters.depth/2 &&
+                   camera.position.y > p.position.y + 1.2 && camera.position.y < p.position.y + 1.8) {
+                    camera.position.y = p.position.y + 1.7; velocityY = 0; canJump = true; onGround = true;
                 }
-            }
-            else if(stage === "UP") { clawSystem.position.y += 0.04; caughtPrizes.forEach(p => p.position.set(clawSystem.position.x, clawSystem.position.y-0.4, clawSystem.position.z)); if(clawSystem.position.y >= 4.5) stage = "DONE"; }
-            else { caughtPrizes.forEach(p => { p.visible = false; prizesLeft--; }); coinsCount--; document.getElementById('coin-val').innerText = coinsCount; document.getElementById('prizes-val').innerText = prizesLeft; clawOpen = 1; clearInterval(interval); isClawDescending = false; }
-        }, 20);
+            });
+            if(camera.position.y <= 1.7) { camera.position.y = 1.7; velocityY = 0; canJump = true; onGround = true; }
+            
+            const dir = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion); dir.y = 0; dir.normalize();
+            const side = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0), dir);
+            if(keys['KeyW']) camera.position.addScaledVector(dir, 0.12);
+            if(keys['KeyS']) camera.position.addScaledVector(dir, -0.12);
+            if(keys['KeyA']) camera.position.addScaledVector(side, 0.12);
+            if(keys['KeyD']) camera.position.addScaledVector(side, -0.12);
+        }
     }
 
     function animate() {
         requestAnimationFrame(animate);
+        updatePhysics();
+        
+        // Pássaros voando
         const time = performance.now() * 0.001;
-        groundMat.uniforms.time.value = time;
-        leafMat.uniforms.time.value = time;
-
-        // Animação natural dos pássaros
         birds.forEach(b => {
-            b.position.add(b.userData.velocity);
-            b.lookAt(b.position.clone().add(b.userData.velocity));
-            // Bate asas simples
-            b.rotation.z = Math.sin(time * 10) * 0.3;
-            if(Math.abs(b.position.x) > 300) resetBird(b);
+            b.position.add(b.userData.vel);
+            b.rotation.z = Math.sin(time*10)*0.2;
+            if(Math.abs(b.position.x) > 250) resetBird(b);
         });
 
-        if(gameState === "WALK") {
-            velocityY -= 0.01; camera.position.y += velocityY;
-            let onPlatform = false;
-            allPlatforms.forEach(p => {
-                const dx = Math.abs(camera.position.x - p.position.x);
-                const dz = Math.abs(camera.position.z - p.position.z);
-                if(dx < p.geometry.parameters.width/2 && dz < p.geometry.parameters.depth/2 && camera.position.y >= p.position.y + 1.2 && camera.position.y <= p.position.y + 1.8) {
-                    camera.position.y = p.position.y + 1.7; velocityY = 0; canJump = true; onPlatform = true;
-                }
-            });
-            if(!onPlatform && camera.position.y <= 1.7) { camera.position.y = 1.7; velocityY = 0; canJump = true; }
-            const dir = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion); dir.y = 0; dir.normalize();
-            const side = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0), dir);
-            if (moveF) camera.position.addScaledVector(dir, 0.15); if (moveB) camera.position.addScaledVector(dir, -0.15);
-            if (moveL) camera.position.addScaledVector(side, 0.15); if (moveR) camera.position.addScaledVector(side, -0.15);
-            if(camera.position.x > 45 && camera.position.y < 0.8) camera.position.copy(parkourStartPos);
+        // Cronômetro da Poção de Sorte
+        if(isLuckActive) {
+            luckTime -= 0.016; // Aproximadamente 60fps
+            document.getElementById('luck-val').innerText = Math.max(0, luckTime).toFixed(1);
+            if(luckTime <= 0) {
+                isLuckActive = false;
+                document.getElementById('luck-timer').style.display = 'none';
+            }
         }
 
-        movingPlatforms.forEach(p => { p.mesh.position.z += 0.05 * p.dir; if(Math.abs(p.mesh.position.z - p.startZ) > 5) p.dir *= -1; });
-        if(gameActive) document.getElementById('timer-val').innerText = ((Date.now() - startTime) / 1000).toFixed(1);
-        pinchers.forEach(p => p.rotation.x = 0.8 * (1 - clawOpen));
         renderer.render(scene, camera);
     }
     animate();
