@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Arcade Park - Pro Edition</title>
+    <title>Arcade Park - Ultimate Edition</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #000; }
         #crosshair {
@@ -25,9 +25,9 @@
             font-size: 18px; border: 2px solid #ffd700;
         }
         #luck-timer {
-            display: none; background: rgba(0, 255, 0, 0.8); color: black; font-weight: bold;
+            display: none; background: rgba(0, 255, 0, 0.9); color: black; font-weight: bold;
             padding: 10px 20px; border-radius: 15px; margin-top: 15px;
-            border: 2px solid white; font-size: 20px;
+            border: 2px solid white; font-size: 20px; box-shadow: 0 0 15px rgba(0,255,0,0.5);
         }
         #prompt {
             color: white; font-size: 24px; font-weight: bold;
@@ -38,7 +38,8 @@
             position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.9);
             display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100;
         }
-        button { padding: 10px 20px; font-size: 20px; cursor: pointer; background: #ffd700; border: none; border-radius: 5px; font-weight: bold; }
+        button { padding: 15px 30px; font-size: 22px; cursor: pointer; background: #ffd700; border: none; border-radius: 8px; font-weight: bold; transition: 0.3s; }
+        button:hover { background: #fff; transform: scale(1.05); }
         #game-info {
             position: absolute; top: 100px; right: 20px;
             background: rgba(0,0,0,0.8); color: white; padding: 20px;
@@ -49,15 +50,16 @@
 <body>
 
     <div id="setup-screen">
-        <h1 style="color: #ffd700;">ARCADE PARK CHALLENGE</h1>
-        <button onclick="startGame()">INICIAR JOGO</button>
+        <h1 style="color: #ffd700; font-size: 48px; margin-bottom: 10px;">ARCADE PARK</h1>
+        <p style="color: white; margin-bottom: 30px;">Colete moedas e vença o Parkour para ganhar sorte!</p>
+        <button onclick="startGame()">INICIAR DESAFIO</button>
     </div>
 
     <div id="crosshair"></div>
     <div id="ui-layer">
         <div class="stats-container">
             <div class="stats">MOEDAS: <span id="coin-val">0</span></div>
-            <div class="stats" style="color: #00ffcc; border-color: #00ffcc;">PREMIOS: <span id="prizes-val">10</span></div>
+            <div class="stats" style="color: #00ffcc; border-color: #00ffcc;">PRÊMIOS: <span id="prizes-val">10</span></div>
             <div class="stats" style="color: #ff4444; border-color: #ff4444;">TEMPO: <span id="timer-val">0.0</span>s</div>
         </div>
         <div id="luck-timer">SORTE ATIVA: <span id="luck-val">30.0</span>s</div>
@@ -66,11 +68,11 @@
 
     <div id="game-info">
         <h2 style="color:#00ffff; margin-top:0">MODO GARRA</h2>
-        <ul style="list-style:none; padding:0">
+        <ul style="list-style:none; padding:0; line-height: 1.6;">
             <li>Setas: Mover Garra</li>
             <li>Mouse: Olhar para Lados</li>
             <li>Espaço: Pescar</li>
-            <li>ESC: Sair</li>
+            <li>ESC: Sair da Máquina</li>
         </ul>
     </div>
 
@@ -83,12 +85,12 @@
 
     const scene = new THREE.Scene();
     
-    // CÉU E LUZ
-    const skyGeo = new THREE.SphereGeometry(400, 32, 15);
+    // AMBIENTE E CÉU
+    const skyGeo = new THREE.SphereGeometry(450, 32, 15);
     const skyMat = new THREE.ShaderMaterial({ 
         vertexShader: `varying vec3 vWorldPosition; void main() { vec4 worldPosition = modelMatrix * vec4( position, 1.0 ); vWorldPosition = worldPosition.xyz; gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 ); }`, 
         fragmentShader: `uniform vec3 topColor; uniform vec3 bottomColor; varying vec3 vWorldPosition; void main() { float h = normalize( vWorldPosition ).y; gl_FragColor = vec4( mix( bottomColor, topColor, max( h, 0.0 ) ), 1.0 ); }`,
-        uniforms: { topColor: { value: new THREE.Color(0x0077ff) }, bottomColor: { value: new THREE.Color(0xffffff) } },
+        uniforms: { topColor: { value: new THREE.Color(0x00aaff) }, bottomColor: { value: new THREE.Color(0xffffff) } },
         side: THREE.BackSide 
     });
     scene.add(new THREE.Mesh(skyGeo, skyMat));
@@ -102,77 +104,108 @@
     const sun = new THREE.DirectionalLight(0xffffff, 2.0);
     sun.position.set(50, 100, 50);
     sun.castShadow = true;
-    scene.add(sun, new THREE.AmbientLight(0xffffff, 0.6));
+    scene.add(sun, new THREE.AmbientLight(0xffffff, 0.7));
 
-    // GRAMA E ÁRVORES
-    const groundGeo = new THREE.PlaneGeometry(1000, 1000);
-    const groundMat = new THREE.MeshStandardMaterial({color: 0x348C31});
+    // GRAMA REALISTA
+    const groundGeo = new THREE.PlaneGeometry(1000, 1000, 50, 50);
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0x348C31 });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     scene.add(ground);
 
-    // PÁSSAROS REFEITOS (Voo Linear)
+    // PÁSSAROS NATURAIS (VOO LINEAR)
     const birds = [];
-    function createBird() {
-        const b = new THREE.Mesh(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute([-0.3,0,0, 0,0,0.4, 0.3,0,0], 3)), new THREE.MeshBasicMaterial({color:0x000, side:2}));
-        resetBird(b);
-        scene.add(b);
-        birds.push(b);
-    }
     function resetBird(b) {
         const side = Math.random() > 0.5 ? 1 : -1;
-        b.position.set(200 * side, 30 + Math.random()*20, (Math.random()-0.5)*200);
-        b.userData = { vel: new THREE.Vector3(-side * (0.3 + Math.random()*0.4), 0, (Math.random()-0.5)*0.1) };
+        b.position.set(250 * side, 30 + Math.random() * 20, (Math.random() - 0.5) * 200);
+        b.userData = { vel: new THREE.Vector3(-side * (0.3 + Math.random() * 0.4), 0, (Math.random() - 0.5) * 0.1) };
     }
-    for(let i=0; i<6; i++) createBird();
+    for(let i=0; i<8; i++){
+        const b = new THREE.Mesh(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute([-0.3,0,0, 0,0,0.5, 0.3,0,0], 3)), new THREE.MeshBasicMaterial({color:0x111, side:2}));
+        resetBird(b); scene.add(b); birds.push(b);
+    }
 
-    // PARKOUR E POÇÃO
-    const allPlatforms = [];
-    function createPlat(x,y,z,w,d) {
-        const p = new THREE.Mesh(new THREE.BoxGeometry(w,0.8,d), new THREE.MeshStandardMaterial({color:0xff4400}));
-        p.position.set(x,y,z); scene.add(p); allPlatforms.push(p);
+    // ÁRVORES COM FOLHAS REALISTAS (VOLTARAM!)
+    const leafGeo = new THREE.DodecahedronGeometry(2);
+    const leafMat = new THREE.ShaderMaterial({
+        uniforms: { time: { value: 0 }, color: { value: new THREE.Color(0x2E7D32) } },
+        vertexShader: `uniform float time; void main() { vec3 pos = position; pos.x += sin(time + position.y) * 0.15; gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0); }`,
+        fragmentShader: `uniform vec3 color; void main() { gl_FragColor = vec4(color, 1.0); }`
+    });
+
+    for(let i=0; i<60; i++) {
+        const x = Math.random() * 200 - 100, z = Math.random() * 200 - 100;
+        if (Math.abs(x) > 12 || Math.abs(z) > 15) {
+            const tree = new THREE.Group();
+            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, 4), new THREE.MeshStandardMaterial({color:0x5D4037}));
+            trunk.position.y = 2; tree.add(trunk);
+            const foliage = new THREE.Mesh(leafGeo, leafMat);
+            foliage.position.y = 4.5; tree.add(foliage);
+            tree.position.set(x, 0, z); scene.add(tree);
+        }
     }
-    createPlat(50, 0.5, -30, 6, 6);
+
+    // PARKOUR COMPLETO E APROXIMADO
+    const allPlatforms = [];
+    const movingPlatforms = [];
+    function createPlat(x,y,z,w,d, moving = false) {
+        const p = new THREE.Mesh(new THREE.BoxGeometry(w,0.8,d), new THREE.MeshStandardMaterial({color: moving ? 0x00ffff : 0xff4400}));
+        p.position.set(x,y,z); scene.add(p); allPlatforms.push(p);
+        if(moving) movingPlatforms.push({mesh: p, startZ: z, dir: 1});
+    }
+
+    createPlat(50, 0.5, -30, 6, 6);   // Base
     createPlat(50, 2.5, -36, 3, 3);
     createPlat(55, 4.5, -36, 3, 3);
-    createPlat(50, 6.5, -32, 4, 4);
-    const potion = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 0.8), new THREE.MeshStandardMaterial({color: 0x00ff00, emissive: 0x00ff00}));
-    potion.position.set(50, 8, -32); scene.add(potion);
+    createPlat(60, 6.5, -36, 3, 3, true);
+    createPlat(60, 8.5, -42, 4, 4);
+    createPlat(55, 10.5, -48, 2, 2);
+    createPlat(48, 12.5, -48, 3, 3);
+    createPlat(42, 14.5, -42, 3, 3, true);
+    createPlat(42, 16.5, -34, 4, 4);
+    createPlat(50, 18.5, -34, 8, 8); // Plataforma da Poção
 
-    // MOEDAS
-    const coins = [];
-    for(let i=0; i<15; i++) {
-        const c = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.02), new THREE.MeshStandardMaterial({color:0xffd700}));
-        c.position.set(Math.random()*40-20, 0.2, Math.random()*40-20);
-        c.rotation.x = Math.PI/2; scene.add(c); coins.push(c);
-    }
+    const potion = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 0.8), new THREE.MeshStandardMaterial({color: 0x00ff00, emissive: 0x00ff00, emissiveIntensity: 2}));
+    potion.position.set(50, 20, -34); scene.add(potion);
 
-    // MÁQUINA
+    // MÁQUINA DE PRÊMIOS
     const machine = new THREE.Group();
-    const mBase = new THREE.Mesh(new THREE.BoxGeometry(4, 1.5, 4), new THREE.MeshStandardMaterial({color:0xcc0000}));
-    mBase.position.y = 0.75; machine.add(mBase);
-    const mGlass = new THREE.Mesh(new THREE.BoxGeometry(3.8, 4, 3.8), new THREE.MeshStandardMaterial({color:0xffffff, transparent:true, opacity:0.2}));
-    mGlass.position.y = 3.5; machine.add(mGlass);
-    const clawSystem = new THREE.Group();
-    const clawHead = new THREE.Mesh(new THREE.SphereGeometry(0.2), new THREE.MeshStandardMaterial({color:0x888}));
-    clawSystem.add(clawHead); clawSystem.position.set(0, 5, 0); machine.add(clawSystem);
+    const mBase = new THREE.Mesh(new THREE.BoxGeometry(4, 1.8, 4), new THREE.MeshStandardMaterial({color:0xcc0000}));
+    mBase.position.y = 0.9; machine.add(mBase);
+    const mGlass = new THREE.Mesh(new THREE.BoxGeometry(3.8, 4, 3.8), new THREE.MeshStandardMaterial({color:0xffffff, transparent:true, opacity:0.2, metalness: 0.5, roughness: 0.1}));
+    mGlass.position.y = 3.8; machine.add(mGlass);
     
+    const clawGroup = new THREE.Group();
+    const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 4), new THREE.MeshStandardMaterial({color:0x333}));
+    cable.position.y = 2; clawGroup.add(cable);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.2), new THREE.MeshStandardMaterial({color:0x888}));
+    clawGroup.add(head); clawGroup.position.set(0, 5.5, 0); machine.add(clawGroup);
+
     const prizes = [];
     for(let i=0; i<10; i++){
         const p = new THREE.Mesh(new THREE.SphereGeometry(0.3), new THREE.MeshStandardMaterial({color: Math.random()*0xffffff}));
-        p.position.set(Math.random()*2.5-1.25, 1.8, Math.random()*2.5-1.25);
+        p.position.set(Math.random()*2.8-1.4, 2.1, Math.random()*2.8-1.4);
         machine.add(p); prizes.push(p);
     }
-    machine.position.set(0, 0, -10); scene.add(machine);
+    machine.position.set(0, 0, -12); scene.add(machine);
 
-    // LÓGICA DE JOGO
-    let gameState = "WALK", coinsCount = 0, prizesLeft = 10;
+    // MOEDAS
+    const coins = [];
+    for(let i=0; i<25; i++) {
+        const c = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.03), new THREE.MeshStandardMaterial({color:0xffd700, metalness: 0.8, roughness: 0.2}));
+        c.position.set(Math.random()*60-30, 0.2, Math.random()*60-30);
+        c.rotation.x = Math.PI/2; scene.add(c); coins.push(c);
+    }
+
+    // VARIÁVEIS DE ESTADO
+    let gameState = "SETUP", coinsCount = 0, prizesLeft = 10;
     let yaw = 0, pitch = 0, velocityY = 0, canJump = true;
     let luckTime = 0, isLuckActive = false;
-    let clawYaw = 0; // Para olhar pros lados na máquina
+    let clawYaw = 0; // Para a câmera da máquina
+    let startTime = 0, gameActive = false;
 
-    window.startGame = () => { document.getElementById('setup-screen').style.display = 'none'; };
+    window.startGame = () => { document.getElementById('setup-screen').style.display = 'none'; gameState = "WALK"; startTime = Date.now(); gameActive = true; };
 
     document.addEventListener('mousemove', (e) => {
         if (!document.pointerLockElement) return;
@@ -181,90 +214,90 @@
             pitch = Math.max(-1.5, Math.min(1.5, pitch));
             camera.rotation.set(pitch, yaw, 0, 'YXZ');
         } else if(gameState === "CLAW") {
-            // Movimento lateral limitado para ver os prêmios
-            clawYaw -= e.movementX * 0.002;
-            clawYaw = Math.max(-0.6, Math.min(0.6, clawYaw));
+            // FIX: Movimento de "olhar para os lados" na frente da máquina
+            clawYaw -= e.movementX * 0.0015;
+            clawYaw = Math.max(-0.7, Math.min(0.7, clawYaw)); // Limita o ângulo para não girar 360
             camera.rotation.y = Math.PI + clawYaw;
         }
     });
 
     document.addEventListener('keydown', (e) => {
         if(e.code === 'KeyE') {
-            // Coletar moedas
             coins.forEach(c => { if(c.visible && camera.position.distanceTo(c.position) < 3) { c.visible = false; coinsCount++; document.getElementById('coin-val').innerText = coinsCount; }});
-            // Pegar Poção
-            if(potion.visible && camera.position.distanceTo(potion.position) < 2.5) {
-                potion.visible = false;
-                isLuckActive = true;
-                luckTime = 30;
+            if(potion.visible && camera.position.distanceTo(potion.position) < 3.5) {
+                potion.visible = false; isLuckActive = true; luckTime = 30;
                 document.getElementById('luck-timer').style.display = 'block';
             }
-            // Entrar na Máquina
             if(gameState === "WALK" && camera.position.distanceTo(machine.position) < 5 && coinsCount > 0) {
                 gameState = "CLAW";
                 document.getElementById('game-info').style.display = 'block';
+                document.getElementById('crosshair').style.display = 'none';
                 clawYaw = 0;
-                // FIX DA CÂMERA: Posição ideal na frente do vidro olhando para dentro
-                camera.position.set(0, 4, -5.5); 
-                camera.rotation.set(-0.2, Math.PI, 0); 
+                // POSIÇÃO DA CÂMERA NA MÁQUINA (FIXO)
+                camera.position.set(0, 4.2, -7.5); // Em frente ao vidro
+                camera.rotation.set(-0.2, Math.PI, 0); // Olhando levemente para baixo
             }
         }
         if(e.code === 'Escape' && gameState === "CLAW") {
             gameState = "WALK";
             document.getElementById('game-info').style.display = 'none';
-            camera.position.set(0, 1.7, -5);
+            document.getElementById('crosshair').style.display = 'block';
+            camera.position.set(0, 1.7, -6);
         }
-        if(gameState === "WALK" && e.code === 'Space' && canJump) { velocityY = 0.2; canJump = false; }
+        if(gameState === "WALK" && e.code === 'Space' && canJump) { velocityY = 0.22; canJump = false; }
     });
 
     const keys = {};
     document.addEventListener('keydown', e => keys[e.code] = true);
     document.addEventListener('keyup', e => keys[e.code] = false);
-    document.addEventListener('mousedown', () => document.body.requestPointerLock());
+    document.addEventListener('mousedown', () => { if(gameState !== "SETUP") document.body.requestPointerLock(); });
 
-    function updatePhysics() {
+    function animate() {
+        requestAnimationFrame(animate);
+        const time = performance.now() * 0.001;
+        leafMat.uniforms.time.value = time;
+
         if(gameState === "WALK") {
-            velocityY -= 0.008; camera.position.y += velocityY;
+            velocityY -= 0.009; camera.position.y += velocityY;
             let onGround = false;
             allPlatforms.forEach(p => {
                 if(Math.abs(camera.position.x - p.position.x) < p.geometry.parameters.width/2 && 
                    Math.abs(camera.position.z - p.position.z) < p.geometry.parameters.depth/2 &&
                    camera.position.y > p.position.y + 1.2 && camera.position.y < p.position.y + 1.8) {
                     camera.position.y = p.position.y + 1.7; velocityY = 0; canJump = true; onGround = true;
+                    // Se for plataforma móvel, carrega o player
+                    const mp = movingPlatforms.find(m => m.mesh === p);
+                    if(mp) camera.position.z += 0.05 * mp.dir;
                 }
             });
             if(camera.position.y <= 1.7) { camera.position.y = 1.7; velocityY = 0; canJump = true; onGround = true; }
             
             const dir = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion); dir.y = 0; dir.normalize();
             const side = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0), dir);
-            if(keys['KeyW']) camera.position.addScaledVector(dir, 0.12);
-            if(keys['KeyS']) camera.position.addScaledVector(dir, -0.12);
-            if(keys['KeyA']) camera.position.addScaledVector(side, 0.12);
-            if(keys['KeyD']) camera.position.addScaledVector(side, -0.12);
-        }
-    }
+            if(keys['KeyW']) camera.position.addScaledVector(dir, 0.15);
+            if(keys['KeyS']) camera.position.addScaledVector(dir, -0.15);
+            if(keys['KeyA']) camera.position.addScaledVector(side, 0.15);
+            if(keys['KeyD']) camera.position.addScaledVector(side, -0.15);
 
-    function animate() {
-        requestAnimationFrame(animate);
-        updatePhysics();
-        
-        // Pássaros voando
-        const time = performance.now() * 0.001;
+            // Se cair do parkour alto
+            if(camera.position.x > 35 && camera.position.y < 1.0) camera.position.set(50, 1.7, -30);
+        }
+
+        // PÁSSAROS E PLATAFORMAS
         birds.forEach(b => {
             b.position.add(b.userData.vel);
-            b.rotation.z = Math.sin(time*10)*0.2;
-            if(Math.abs(b.position.x) > 250) resetBird(b);
+            b.rotation.z = Math.sin(time*12)*0.3;
+            if(Math.abs(b.position.x) > 300) resetBird(b);
         });
+        movingPlatforms.forEach(p => { p.mesh.position.z += 0.05 * p.dir; if(Math.abs(p.mesh.position.z - p.startZ) > 6) p.dir *= -1; });
 
-        // Cronômetro da Poção de Sorte
+        // CRONÔMETRO SORTE
         if(isLuckActive) {
-            luckTime -= 0.016; // Aproximadamente 60fps
+            luckTime -= 0.016;
             document.getElementById('luck-val').innerText = Math.max(0, luckTime).toFixed(1);
-            if(luckTime <= 0) {
-                isLuckActive = false;
-                document.getElementById('luck-timer').style.display = 'none';
-            }
+            if(luckTime <= 0) { isLuckActive = false; document.getElementById('luck-timer').style.display = 'none'; }
         }
+        if(gameActive) document.getElementById('timer-val').innerText = ((Date.now() - startTime) / 1000).toFixed(1);
 
         renderer.render(scene, camera);
     }
