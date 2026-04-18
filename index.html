@@ -35,6 +35,12 @@
         }
         input { padding: 10px; font-size: 20px; border-radius: 5px; border: none; margin: 10px; }
         button { padding: 10px 20px; font-size: 20px; cursor: pointer; background: #ffd700; border: none; border-radius: 5px; font-weight: bold; }
+        
+        /* BOTÃO DE RESET ESTILIZADO */
+        #reset-game-btn {
+            background: #ff4444; color: white; border: 2px solid white; margin-left: 10px;
+        }
+
         #leaderboard {
             position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.8);
             padding: 15px; border-radius: 10px; border: 1px solid #ffd700; color: #fff; font-size: 14px;
@@ -65,6 +71,7 @@
             <div class="stats">MOEDAS: <span id="coin-val">0</span></div>
             <div class="stats" style="color: #00ffcc; border-color: #00ffcc;">RESTAM: <span id="prizes-val">10</span></div>
             <div class="stats" style="color: #ff4444; border-color: #ff4444;">TEMPO: <span id="timer-val">0.0</span>s</div>
+            <button id="reset-game-btn" onclick="resetCurrentMatch()">RESETAR PARTIDA</button>
             <button id="reset-btn" style="display:none" onclick="location.reload()">NOVO JOGO</button>
         </div>
         <div id="prompt">Pressione [E] para interagir</div>
@@ -109,7 +116,6 @@
     sun.castShadow = true;
     scene.add(sun, new THREE.AmbientLight(0xffffff, 0.6));
 
-    // CHÃO (RECOLOCADO)
     const ground = new THREE.Mesh(
         new THREE.PlaneGeometry(1000, 1000), 
         new THREE.MeshStandardMaterial({ color: 0x348C31, side: THREE.DoubleSide })
@@ -118,6 +124,51 @@
     ground.position.y = 0;
     ground.receiveShadow = true;
     scene.add(ground);
+
+    // --- NOVOS LUGARES ---
+    // Fonte de Água
+    const fountainBase = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 0.5, 32), new THREE.MeshStandardMaterial({color: 0x888888}));
+    fountainBase.position.set(30, 0.25, 20);
+    scene.add(fountainBase);
+    
+    // Área de Descanso (Banco)
+    const bench = new THREE.Mesh(new THREE.BoxGeometry(4, 0.5, 1.5), new THREE.MeshStandardMaterial({color: 0x4a2c2a}));
+    bench.position.set(-20, 0.25, 15);
+    scene.add(bench);
+
+    // --- SISTEMA DE PARKOUR ---
+    const parkourStartPos = new THREE.Vector3(50, 2, -30);
+    const platforms = [];
+    const parkourGroup = new THREE.Group();
+
+    function createPlatform(x, y, z, w, d) {
+        const geo = new THREE.BoxGeometry(w, 0.5, d);
+        const mat = new THREE.MeshStandardMaterial({ color: 0xff4400 });
+        const plat = new THREE.Mesh(geo, mat);
+        plat.position.set(x, y, z);
+        parkourGroup.add(plat);
+        platforms.push(plat);
+    }
+
+    // Caminho do Parkour
+    createPlatform(50, 2, -30, 4, 4); // Início
+    createPlatform(55, 3.5, -30, 2, 2);
+    createPlatform(60, 5, -30, 2, 2); // Obstáculo (altura)
+    createPlatform(60, 5, -35, 2, 2);
+    createPlatform(55, 6.5, -40, 2, 2);
+    createPlatform(50, 8, -45, 5, 5); // Fim do Parkour
+    scene.add(parkourGroup);
+
+    // Moedas do Final do Parkour (5 moedas)
+    const finalCoins = [];
+    let finalCoinsCollected = false;
+    for(let i=0; i<5; i++) {
+        const c = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.05), new THREE.MeshStandardMaterial({ color: 0x00ff00, metalness: 0.9 }));
+        c.position.set(48 + i, 8.5, -45);
+        c.rotation.x = Math.PI/2;
+        scene.add(c);
+        finalCoins.push(c);
+    }
 
     // Árvores
     for(let i=0; i<50; i++) {
@@ -135,7 +186,7 @@
         }
     }
 
-    // Moedas
+    // Moedas iniciais
     const coins = [];
     for(let i=0; i<30; i++) {
         const c = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.015), new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.9 }));
@@ -162,7 +213,6 @@
     base.position.y = 0.6;
     machine.add(base);
 
-    // Joystick e Botão
     const controlPanel = new THREE.Mesh(new THREE.BoxGeometry(2, 0.4, 0.6), new THREE.MeshStandardMaterial({color: 0x222222}));
     controlPanel.position.set(0, 1.1, 1.6);
     machine.add(controlPanel);
@@ -215,6 +265,16 @@
         updateLeaderboard();
     };
 
+    // FUNÇÃO RESETAR PARTIDA (Conforme pedido)
+    window.resetCurrentMatch = () => {
+        camera.position.set(0, 1.7, 0);
+        camera.lookAt(0, 1.7, -10);
+        startTime = Date.now();
+        finalCoinsCollected = false;
+        finalCoins.forEach(c => c.visible = true);
+        // Placar (CoinsCount) e Leaderboard continuam normais
+    };
+
     function updateLeaderboard() {
         const scores = JSON.parse(localStorage.getItem('arcadeScores') || "[]");
         document.getElementById('score-list').innerHTML = scores
@@ -246,11 +306,30 @@
             if(e.code === 'KeyW') moveF = true; if(e.code === 'KeyS') moveB = true; 
             if(e.code === 'KeyA') moveL = true; if(e.code === 'KeyD') moveR = true;
             if(e.code === 'KeyE') {
+                // Coleta moedas normais
                 coins.forEach(c => { if(c.visible && camera.position.distanceTo(c.position) < 3) { 
                     c.visible = false; coinsCount++; 
                     document.getElementById('coin-val').innerText = coinsCount;
                     collectCoinAnim();
                 }});
+                
+                // Coleta moedas do final do Parkour (SÓ UMA VEZ)
+                if(!finalCoinsCollected) {
+                    let collectedAny = false;
+                    finalCoins.forEach(c => {
+                        if(camera.position.distanceTo(c.position) < 3) {
+                            c.visible = false;
+                            collectedAny = true;
+                        }
+                    });
+                    if(collectedAny) {
+                        coinsCount += 5;
+                        finalCoinsCollected = true;
+                        document.getElementById('coin-val').innerText = coinsCount;
+                        collectCoinAnim();
+                    }
+                }
+
                 if(camera.position.distanceTo(machine.position) < 4) {
                     if(coinsCount > 0) {
                         gameState = "CLAW";
@@ -297,12 +376,12 @@
                 if(caughtPrize) { 
                     caughtPrize.visible = false; 
                     prizesLeft--;
-                    coinsCount--; // Gasta a moeda ao capturar
+                    coinsCount--; 
                     document.getElementById('coin-val').innerText = coinsCount;
                     document.getElementById('prizes-val').innerText = prizesLeft;
                     caughtPrize = null;
                     if(prizesLeft <= 0) endGame();
-                    else if(coinsCount <= 0) { // Sai da máquina se as moedas acabarem
+                    else if(coinsCount <= 0) { 
                         gameState = "WALK"; document.getElementById('game-info').style.display = 'none'; camera.position.set(0, 1.7, -6);
                     }
                 }
@@ -327,6 +406,14 @@
     function animate() {
         requestAnimationFrame(animate);
         pinchers.forEach(p => p.rotation.x = 0.8 * (1 - clawOpen));
+        
+        // SISTEMA DE QUEDA DO PARKOUR
+        if(camera.position.x > 45 && camera.position.y > 0.5) {
+             if(camera.position.y < 1.5) { // Caiu da plataforma
+                camera.position.copy(parkourStartPos);
+             }
+        }
+
         if(gameActive) document.getElementById('timer-val').innerText = ((Date.now() - startTime) / 1000).toFixed(1);
         if(gameState === "WALK" && document.pointerLockElement) {
             const dir = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion); dir.y = 0; dir.normalize();
