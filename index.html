@@ -109,7 +109,7 @@
     sun.castShadow = true;
     scene.add(sun, new THREE.AmbientLight(0xffffff, 0.6));
 
-    // CHÃO (RECOLOCADO)
+    // CHÃO
     const ground = new THREE.Mesh(
         new THREE.PlaneGeometry(1000, 1000), 
         new THREE.MeshStandardMaterial({ color: 0x348C31, side: THREE.DoubleSide })
@@ -145,6 +145,36 @@
         coins.push(c);
     }
 
+    // --- ADIÇÃO: PÁSSAROS ---
+    const birds = [];
+    for(let i=0; i<8; i++) {
+        const bird = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.5, 3), new THREE.MeshStandardMaterial({color: 0x000000}));
+        bird.position.set(Math.random()*200-100, 15 + Math.random()*10, Math.random()*200-100);
+        bird.rotation.x = Math.PI/2;
+        scene.add(bird);
+        birds.push({mesh: bird, speed: 0.1 + Math.random()*0.2});
+    }
+
+    // --- ADIÇÃO: PARKOUR GRANDE E OBSTÁCULOS ---
+    const platforms = [];
+    const obstacles = [];
+    const platMat = new THREE.MeshStandardMaterial({color: 0x888888});
+    const obsMat = new THREE.MeshStandardMaterial({color: 0xff0000});
+    
+    for(let i=0; i<25; i++) {
+        const p = new THREE.Mesh(new THREE.BoxGeometry(3, 0.5, 3), platMat);
+        p.position.set(15 + (i * 4), 1 + (i * 0.8), -15 - (i * 2));
+        scene.add(p);
+        platforms.push(p);
+
+        if(i % 3 === 0 && i > 0) {
+            const obs = new THREE.Mesh(new THREE.BoxGeometry(1.5, 3, 1.5), obsMat);
+            obs.position.set(p.position.x, p.position.y + 1.5, p.position.z);
+            scene.add(obs);
+            obstacles.push(obs);
+        }
+    }
+
     // MÃO
     const handGroup = new THREE.Group();
     const palm = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.08, 0.35), new THREE.MeshStandardMaterial({color: 0xffdbac}));
@@ -162,7 +192,6 @@
     base.position.y = 0.6;
     machine.add(base);
 
-    // Joystick e Botão
     const controlPanel = new THREE.Mesh(new THREE.BoxGeometry(2, 0.4, 0.6), new THREE.MeshStandardMaterial({color: 0x222222}));
     controlPanel.position.set(0, 1.1, 1.6);
     machine.add(controlPanel);
@@ -206,9 +235,15 @@
     let moveF = false, moveB = false, moveL = false, moveR = false;
     let yaw = 0, pitch = 0, clawOpen = 1;
 
+    // --- ADIÇÃO: FÍSICA SIMPLES (PULO E GRAVIDADE) ---
+    let velocityY = 0;
+    let isGrounded = true;
+    const jumpForce = 0.2;
+    const gravity = 0.008;
+
     window.startGame = () => {
         const input = document.getElementById('player-name');
-        if(input.value.trim() === "") return alert("Insira seu nome!");
+        if(input.value.trim() === "") return; // Removido alert
         playerName = input.value;
         document.getElementById('setup-screen').style.display = 'none';
         gameState = "WALK";
@@ -245,6 +280,7 @@
         if(gameState === "WALK") {
             if(e.code === 'KeyW') moveF = true; if(e.code === 'KeyS') moveB = true; 
             if(e.code === 'KeyA') moveL = true; if(e.code === 'KeyD') moveR = true;
+            if(e.code === 'Space' && isGrounded) { velocityY = jumpForce; isGrounded = false; } // PULO
             if(e.code === 'KeyE') {
                 coins.forEach(c => { if(c.visible && camera.position.distanceTo(c.position) < 3) { 
                     c.visible = false; coinsCount++; 
@@ -257,8 +293,6 @@
                         document.exitPointerLock(); 
                         document.getElementById('game-info').style.display = 'block';
                         camera.position.set(0, 3.4, -6.5); camera.lookAt(0, 3.4, -10);
-                    } else {
-                        alert("Você precisa de moedas!");
                     }
                 }
             }
@@ -270,6 +304,11 @@
             if(e.code === 'Space') startFishing();
             if(e.code === 'Escape') { gameState = "WALK"; document.getElementById('game-info').style.display = 'none'; camera.position.set(0, 1.7, -6); }
         }
+    });
+
+    document.addEventListener('keyup', (e) => { 
+        if(e.code === 'KeyW') moveF = false; if(e.code === 'KeyS') moveB = false; 
+        if(e.code === 'KeyA') moveL = false; if(e.code === 'KeyD') moveR = false;
     });
 
     function startFishing() {
@@ -297,12 +336,12 @@
                 if(caughtPrize) { 
                     caughtPrize.visible = false; 
                     prizesLeft--;
-                    coinsCount--; // Gasta a moeda ao capturar
+                    coinsCount--;
                     document.getElementById('coin-val').innerText = coinsCount;
                     document.getElementById('prizes-val').innerText = prizesLeft;
                     caughtPrize = null;
                     if(prizesLeft <= 0) endGame();
-                    else if(coinsCount <= 0) { // Sai da máquina se as moedas acabarem
+                    else if(coinsCount <= 0) {
                         gameState = "WALK"; document.getElementById('game-info').style.display = 'none'; camera.position.set(0, 1.7, -6);
                     }
                 }
@@ -317,23 +356,59 @@
         const scores = JSON.parse(localStorage.getItem('arcadeScores') || "[]");
         scores.push({name: playerName, time: parseFloat(finalTime)});
         localStorage.setItem('arcadeScores', JSON.stringify(scores));
-        alert(`PARABÉNS ${playerName}! Tempo: ${finalTime}s`);
         document.getElementById('reset-btn').style.display = 'block';
         updateLeaderboard();
     }
 
-    document.addEventListener('keyup', () => { moveF = moveB = moveL = moveR = false; });
-
     function animate() {
         requestAnimationFrame(animate);
         pinchers.forEach(p => p.rotation.x = 0.8 * (1 - clawOpen));
+        
+        // Mover Pássaros
+        birds.forEach(b => {
+            b.mesh.position.z += b.speed;
+            if(b.mesh.position.z > 150) b.mesh.position.z = -150;
+        });
+
         if(gameActive) document.getElementById('timer-val').innerText = ((Date.now() - startTime) / 1000).toFixed(1);
-        if(gameState === "WALK" && document.pointerLockElement) {
-            const dir = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion); dir.y = 0; dir.normalize();
-            const side = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0), dir);
-            if (moveF) camera.position.addScaledVector(dir, 0.15); if (moveB) camera.position.addScaledVector(dir, -0.15);
-            if (moveL) camera.position.addScaledVector(side, 0.15); if (moveR) camera.position.addScaledVector(side, -0.15);
-            document.getElementById('prompt').style.display = (camera.position.distanceTo(machine.position) < 4) ? 'block' : 'none';
+        
+        if(gameState === "WALK") {
+            // Gravidade e Pulo
+            velocityY -= gravity;
+            camera.position.y += velocityY;
+
+            // Colisão com Chão
+            if(camera.position.y <= 1.7) {
+                camera.position.y = 1.7;
+                velocityY = 0;
+                isGrounded = true;
+            }
+
+            // Colisão com Plataformas
+            platforms.forEach(p => {
+                if(Math.abs(camera.position.x - p.position.x) < 1.5 && 
+                   Math.abs(camera.position.z - p.position.z) < 1.5 && 
+                   camera.position.y >= p.position.y + 1.2 && camera.position.y <= p.position.y + 2) {
+                    camera.position.y = p.position.y + 1.7;
+                    velocityY = 0;
+                    isGrounded = true;
+                }
+            });
+
+            // Obstáculos (Resetam posição)
+            obstacles.forEach(o => {
+                if(camera.position.distanceTo(o.position) < 1.2) {
+                    camera.position.set(0, 1.7, -6);
+                }
+            });
+
+            if(document.pointerLockElement) {
+                const dir = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion); dir.y = 0; dir.normalize();
+                const side = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0), dir);
+                if (moveF) camera.position.addScaledVector(dir, 0.15); if (moveB) camera.position.addScaledVector(dir, -0.15);
+                if (moveL) camera.position.addScaledVector(side, 0.15); if (moveR) camera.position.addScaledVector(side, -0.15);
+                document.getElementById('prompt').style.display = (camera.position.distanceTo(machine.position) < 4) ? 'block' : 'none';
+            }
         }
         renderer.render(scene, camera);
     }
