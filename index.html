@@ -29,12 +29,6 @@
             background: rgba(0,0,0,0.6); padding: 15px 25px; border-radius: 15px;
             display: none; border-bottom: 4px solid #ffd700;
         }
-        #game-info {
-            position: absolute; top: 100px; right: 20px;
-            background: rgba(0,0,0,0.8); color: white; padding: 20px;
-            border-radius: 15px; display: none; border: 2px solid #00ffff;
-        }
-        /* Novos Elementos */
         #setup-screen {
             position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.9);
             display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100;
@@ -44,6 +38,11 @@
         #leaderboard {
             position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.8);
             padding: 15px; border-radius: 10px; border: 1px solid #ffd700; color: #fff; font-size: 14px;
+        }
+        #game-info {
+            position: absolute; top: 100px; right: 20px;
+            background: rgba(0,0,0,0.8); color: white; padding: 20px;
+            border-radius: 15px; display: none; border: 2px solid #00ffff;
         }
     </style>
 </head>
@@ -66,7 +65,7 @@
             <div class="stats">MOEDAS: <span id="coin-val">0</span></div>
             <div class="stats" style="color: #00ffcc; border-color: #00ffcc;">RESTAM: <span id="prizes-val">10</span></div>
             <div class="stats" style="color: #ff4444; border-color: #ff4444;">TEMPO: <span id="timer-val">0.0</span>s</div>
-            <button id="reset-btn" style="display:none" onclick="location.reload()">NOVO JOGADOR</button>
+            <button id="reset-btn" style="display:none" onclick="location.reload()">NOVO JOGO</button>
         </div>
         <div id="prompt">Pressione [E] para interagir</div>
     </div>
@@ -89,7 +88,7 @@
 
     const scene = new THREE.Scene();
     
-    // Shader do Céu
+    // CÉU
     const skyGeo = new THREE.SphereGeometry(400, 32, 15);
     const skyMat = new THREE.ShaderMaterial({ 
         vertexShader: `varying vec3 vWorldPosition; void main() { vec4 worldPosition = modelMatrix * vec4( position, 1.0 ); vWorldPosition = worldPosition.xyz; gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 ); }`, 
@@ -98,7 +97,6 @@
         side: THREE.BackSide 
     });
     scene.add(new THREE.Mesh(skyGeo, skyMat));
-    scene.fog = new THREE.FogExp2(0x89b1c4, 0.005);
 
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -111,8 +109,13 @@
     sun.castShadow = true;
     scene.add(sun, new THREE.AmbientLight(0xffffff, 0.6));
 
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(500, 500), new THREE.MeshStandardMaterial({ color: 0x348C31 }));
+    // CHÃO (RECOLOCADO)
+    const ground = new THREE.Mesh(
+        new THREE.PlaneGeometry(1000, 1000), 
+        new THREE.MeshStandardMaterial({ color: 0x348C31, side: THREE.DoubleSide })
+    );
     ground.rotation.x = -Math.PI / 2;
+    ground.position.y = 0;
     ground.receiveShadow = true;
     scene.add(ground);
 
@@ -134,32 +137,25 @@
 
     // Moedas
     const coins = [];
-    for(let i=0; i<20; i++) {
+    for(let i=0; i<30; i++) {
         const c = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.015), new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.9 }));
-        c.position.set(Math.random()*60-30, 0.08, Math.random()*60-30);
+        c.position.set(Math.random()*80-40, 0.1, Math.random()*80-40);
         c.rotation.x = Math.PI/2;
         scene.add(c);
         coins.push(c);
     }
 
-    // MÃO REALISTA
+    // MÃO
     const handGroup = new THREE.Group();
     const palm = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.08, 0.35), new THREE.MeshStandardMaterial({color: 0xffdbac}));
-    const thumb = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, 0.15), new THREE.MeshStandardMaterial({color: 0xffdbac}));
-    thumb.position.set(-0.15, 0, 0.1); thumb.rotation.y = 0.5;
-    handGroup.add(palm, thumb);
-    
-    // Moeda na mão (invisível inicialmente)
     const heldCoin = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.015), new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.9 }));
-    heldCoin.position.set(0, 0.08, 0);
-    heldCoin.visible = false;
-    handGroup.add(heldCoin);
-
+    heldCoin.position.set(0, 0.08, 0); heldCoin.visible = false;
+    handGroup.add(palm, heldCoin);
     handGroup.position.set(0.6, -0.6, -1);
     camera.add(handGroup);
     scene.add(camera);
 
-    // Máquina
+    // MÁQUINA
     const machine = new THREE.Group();
     const frameMat = new THREE.MeshStandardMaterial({color: 0xcc0000, metalness: 0.5});
     const base = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.2, 3.2), frameMat);
@@ -170,17 +166,6 @@
     const controlPanel = new THREE.Mesh(new THREE.BoxGeometry(2, 0.4, 0.6), new THREE.MeshStandardMaterial({color: 0x222222}));
     controlPanel.position.set(0, 1.1, 1.6);
     machine.add(controlPanel);
-
-    const joystick = new THREE.Group();
-    joystick.add(new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.4), new THREE.MeshStandardMaterial({color: 0x888888})));
-    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.08), new THREE.MeshStandardMaterial({color: 0xff0000}));
-    ball.position.y = 0.2; joystick.add(ball);
-    joystick.position.set(-0.5, 1.3, 1.6);
-    machine.add(joystick);
-
-    const button = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.1), new THREE.MeshStandardMaterial({color: 0x00ff00}));
-    button.position.set(0.5, 1.3, 1.6);
-    machine.add(button);
 
     const glass = new THREE.Mesh(new THREE.BoxGeometry(3, 3.5, 3), new THREE.MeshStandardMaterial({color: 0xffffff, transparent: true, opacity: 0.15}));
     glass.position.y = 2.8;
@@ -213,11 +198,11 @@
     machine.position.set(0, 0, -10);
     scene.add(machine);
 
-    // LÓGICA DE JOGO
+    // LÓGICA
     let playerName = "";
     let coinsCount = 0, prizesLeft = prizeTotal;
     let gameState = "SETUP", isClawDescending = false, caughtPrize = null;
-    let startTime = 0, finalTime = 0, gameActive = false;
+    let startTime = 0, gameActive = false;
     let moveF = false, moveB = false, moveL = false, moveR = false;
     let yaw = 0, pitch = 0, clawOpen = 1;
 
@@ -233,22 +218,16 @@
     function updateLeaderboard() {
         const scores = JSON.parse(localStorage.getItem('arcadeScores') || "[]");
         document.getElementById('score-list').innerHTML = scores
-            .sort((a,b) => a.time - b.time)
-            .slice(0,5)
+            .sort((a,b) => a.time - b.time).slice(0,5)
             .map(s => `<div>${s.name}: ${s.time}s</div>`).join('');
     }
 
-    function collectCoin() {
+    function collectCoinAnim() {
         heldCoin.visible = true;
         let t = 0;
         const anim = setInterval(() => {
-            t += 0.1;
-            handGroup.position.y = -0.6 + Math.sin(t * Math.PI) * 0.4;
-            if(t >= 1) { 
-                clearInterval(anim); 
-                heldCoin.visible = false; 
-                handGroup.position.y = -0.6;
-            }
+            t += 0.1; handGroup.position.y = -0.6 + Math.sin(t * Math.PI) * 0.4;
+            if(t >= 1) { clearInterval(anim); heldCoin.visible = false; handGroup.position.y = -0.6; }
         }, 30);
     }
 
@@ -264,27 +243,30 @@
 
     document.addEventListener('keydown', (e) => {
         if(gameState === "WALK") {
-            if(['KeyW','KeyS','KeyA','KeyD'].includes(e.code) && !gameActive) { startTime = Date.now(); gameActive = true; }
             if(e.code === 'KeyW') moveF = true; if(e.code === 'KeyS') moveB = true; 
             if(e.code === 'KeyA') moveL = true; if(e.code === 'KeyD') moveR = true;
             if(e.code === 'KeyE') {
                 coins.forEach(c => { if(c.visible && camera.position.distanceTo(c.position) < 3) { 
                     c.visible = false; coinsCount++; 
                     document.getElementById('coin-val').innerText = coinsCount;
-                    collectCoin();
+                    collectCoinAnim();
                 }});
-                if(camera.position.distanceTo(machine.position) < 4 && coinsCount > 0) {
-                    gameState = "CLAW"; coinsCount--; document.getElementById('coin-val').innerText = coinsCount;
-                    document.exitPointerLock(); document.getElementById('game-info').style.display = 'block';
-                    camera.position.set(0, 3.4, -6.5); camera.lookAt(0, 3.4, -10);
+                if(camera.position.distanceTo(machine.position) < 4) {
+                    if(coinsCount > 0) {
+                        gameState = "CLAW";
+                        document.exitPointerLock(); 
+                        document.getElementById('game-info').style.display = 'block';
+                        camera.position.set(0, 3.4, -6.5); camera.lookAt(0, 3.4, -10);
+                    } else {
+                        alert("Você precisa de moedas!");
+                    }
                 }
             }
         } else if(gameState === "CLAW" && !isClawDescending) {
-            const speed = 0.03; // Dificuldade: Velocidade reduzida
-            if(e.code === 'ArrowLeft' && clawSystem.position.x > -1.2) clawSystem.position.x -= speed;
-            if(e.code === 'ArrowRight' && clawSystem.position.x < 1.2) clawSystem.position.x += speed;
-            if(e.code === 'ArrowUp' && clawSystem.position.z > -1.2) clawSystem.position.z -= speed;
-            if(e.code === 'ArrowDown' && clawSystem.position.z < 1.2) clawSystem.position.z += speed;
+            if(e.code === 'ArrowLeft' && clawSystem.position.x > -1.2) clawSystem.position.x -= 0.03;
+            if(e.code === 'ArrowRight' && clawSystem.position.x < 1.2) clawSystem.position.x += 0.03;
+            if(e.code === 'ArrowUp' && clawSystem.position.z > -1.2) clawSystem.position.z -= 0.03;
+            if(e.code === 'ArrowDown' && clawSystem.position.z < 1.2) clawSystem.position.z += 0.03;
             if(e.code === 'Space') startFishing();
             if(e.code === 'Escape') { gameState = "WALK"; document.getElementById('game-info').style.display = 'none'; camera.position.set(0, 1.7, -6); }
         }
@@ -300,7 +282,6 @@
             } else if(stage === "GRAB") {
                 clawOpen -= 0.1;
                 if(clawOpen <= 0) {
-                    // Dificuldade: Raio de detecção menor (0.4 vs 0.8 antigo)
                     prizesInside.forEach(p => {
                         if(p.visible && p.position.distanceTo(new THREE.Vector3(clawSystem.position.x, 1.3, clawSystem.position.z)) < 0.45) {
                             caughtPrize = p;
@@ -310,16 +291,20 @@
                 }
             } else if(stage === "UP") {
                 clawSystem.position.y += 0.03;
-                if(caughtPrize) {
-                    caughtPrize.position.set(clawSystem.position.x, clawSystem.position.y - 0.4, clawSystem.position.z);
-                }
+                if(caughtPrize) caughtPrize.position.set(clawSystem.position.x, clawSystem.position.y - 0.4, clawSystem.position.z);
                 if(clawSystem.position.y >= 4.5) stage = "DONE";
             } else {
                 if(caughtPrize) { 
-                    caughtPrize.visible = false; prizesLeft--;
+                    caughtPrize.visible = false; 
+                    prizesLeft--;
+                    coinsCount--; // Gasta a moeda ao capturar
+                    document.getElementById('coin-val').innerText = coinsCount;
                     document.getElementById('prizes-val').innerText = prizesLeft;
                     caughtPrize = null;
                     if(prizesLeft <= 0) endGame();
+                    else if(coinsCount <= 0) { // Sai da máquina se as moedas acabarem
+                        gameState = "WALK"; document.getElementById('game-info').style.display = 'none'; camera.position.set(0, 1.7, -6);
+                    }
                 }
                 clawOpen = 1; clearInterval(interval); isClawDescending = false;
             }
@@ -328,11 +313,11 @@
 
     function endGame() {
         gameActive = false;
-        finalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+        let finalTime = ((Date.now() - startTime) / 1000).toFixed(1);
         const scores = JSON.parse(localStorage.getItem('arcadeScores') || "[]");
         scores.push({name: playerName, time: parseFloat(finalTime)});
         localStorage.setItem('arcadeScores', JSON.stringify(scores));
-        alert(`PARABÉNS ${playerName}!\nVocê limpou a máquina em ${finalTime} segundos.`);
+        alert(`PARABÉNS ${playerName}! Tempo: ${finalTime}s`);
         document.getElementById('reset-btn').style.display = 'block';
         updateLeaderboard();
     }
@@ -342,10 +327,7 @@
     function animate() {
         requestAnimationFrame(animate);
         pinchers.forEach(p => p.rotation.x = 0.8 * (1 - clawOpen));
-        if(gameActive) {
-            const time = ((Date.now() - startTime) / 1000).toFixed(1);
-            document.getElementById('timer-val').innerText = time;
-        }
+        if(gameActive) document.getElementById('timer-val').innerText = ((Date.now() - startTime) / 1000).toFixed(1);
         if(gameState === "WALK" && document.pointerLockElement) {
             const dir = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion); dir.y = 0; dir.normalize();
             const side = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0), dir);
