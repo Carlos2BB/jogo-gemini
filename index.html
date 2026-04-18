@@ -117,26 +117,50 @@
     sun.castShadow = true;
     scene.add(sun, new THREE.AmbientLight(0xffffff, 0.6));
 
-    // GRAMA REALISTA (SHADER SIMPLES DE RUÍDO)
-    const groundGeo = new THREE.PlaneGeometry(1000, 1000, 50, 50);
-    const groundMat = new THREE.MeshStandardMaterial({ 
-        color: 0x348C31, 
-        roughness: 0.8,
-        onBeforeCompile: (shader) => {
-            shader.fragmentShader = shader.fragmentShader.replace(
-                `#include <color_fragment>`,
-                `#include <color_fragment>
-                 float noise = fract(sin(dot(vMapUv.xy, vec2(12.9898,78.233))) * 43758.5453);
-                 diffuseColor.rgb *= 0.9 + (noise * 0.2);`
-            );
-        }
+    // --- CHÃO DE GRAMA REALISTA (SHADER DE VENTO E VARIAÇÃO DE COR) ---
+    const groundGeo = new THREE.PlaneGeometry(1000, 1000, 100, 100);
+    const groundMat = new THREE.ShaderMaterial({
+        uniforms: {
+            time: { value: 0 },
+            colorBase: { value: new THREE.Color(0x348C31) },
+            colorTip: { value: new THREE.Color(0x55AE4A) }
+        },
+        vertexShader: `
+            uniform float time;
+            varying vec2 vUv;
+            varying float vWind;
+            void main() {
+                vUv = uv;
+                // Simulação simples de vento baseada na posição e tempo
+                vWind = sin(position.x * 0.1 + time) * cos(position.y * 0.1 + time) * 0.5;
+                vec3 newPos = position;
+                // Move os vértices levemente para simular o balanço
+                if (position.y > 0.0) { // Aplica apenas "acima" do nível base se houver altura
+                    newPos.x += vWind * 0.2;
+                }
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(newPos, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 colorBase;
+            uniform vec3 colorTip;
+            varying vec2 vUv;
+            varying float vWind;
+            void main() {
+                // Mix de cores baseado no "vento" e UV para criar textura
+                float factor = vUv.y + vWind * 0.1;
+                vec3 finalColor = mix(colorBase, colorTip, factor);
+                gl_FragColor = vec4(finalColor, 1.0);
+            }
+        `,
+        side: THREE.DoubleSide
     });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     scene.add(ground);
 
-    // PÁSSAROS
+    // PÁSSAROS (Sistema de partículas original)
     const birds = [];
     const birdGeo = new THREE.BufferGeometry();
     birdGeo.setAttribute('position', new THREE.Float32BufferAttribute([-0.2,0,0, 0,0,0.3, 0.2,0,0], 3));
@@ -150,19 +174,29 @@
         birds.push(bird);
     }
 
-    // ÁRVORES COM FOLHAS REALISTAS
-    const leafMat = new THREE.MeshStandardMaterial({ 
-        color: 0x2E7D32,
-        onBeforeCompile: (shader) => {
-            shader.vertexShader = `varying vec3 vPos; ${shader.vertexShader}`.replace(
-                `#include <begin_vertex>`,
-                `#include <begin_vertex>
-                 vPos = position;
-                 transformed.x += sin(time * 2.0 + position.y) * 0.05;`
-            );
-            shader.uniforms.time = { value: 0 };
-            leafMat.userData.shader = shader;
-        }
+    // --- ÁRVORES COM FOLHAS REALISTAS (SHADER DE BALANÇO) ---
+    const leafGeo = new THREE.DodecahedronGeometry(2);
+    const leafMat = new THREE.ShaderMaterial({
+        uniforms: {
+            time: { value: 0 },
+            color: { value: new THREE.Color(0x2E7D32) }
+        },
+        vertexShader: `
+            uniform float time;
+            void main() {
+                vec3 newPos = position;
+                // Balanço orgânico das folhas
+                newPos.x += sin(time + position.y) * 0.1;
+                newPos.y += cos(time + position.x) * 0.05;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(newPos, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 color;
+            void main() {
+                gl_FragColor = vec4(color, 1.0);
+            }
+        `
     });
 
     for(let i=0; i<50; i++) {
@@ -171,13 +205,13 @@
             const tree = new THREE.Group();
             const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, 4), new THREE.MeshStandardMaterial({color:0x5D4037}));
             trunk.position.y = 2; tree.add(trunk);
-            const foliage = new THREE.Mesh(new THREE.DodecahedronGeometry(2), leafMat);
+            const foliage = new THREE.Mesh(leafGeo, leafMat);
             foliage.position.y = 4.5; tree.add(foliage);
             tree.position.set(x, 0, z); scene.add(tree);
         }
     }
 
-    // --- PARKOUR MELHORADO (MAIS OBSTÁCULOS) ---
+    // --- PARKOUR MELHORADO E APROXIMADO ---
     const parkourStartPos = new THREE.Vector3(50, 1.7, -30);
     const movingPlatforms = [];
     const allPlatforms = [];
@@ -193,35 +227,36 @@
         if(moving) movingPlatforms.push({mesh: plat, startZ: z, dir: 1});
     }
 
-    // Percurso original expandido
-    createPlatform(50, 0.5, -30, 6, 6); 
-    createPlatform(50, 2.5, -40, 3, 3); 
-    createPlatform(58, 4.5, -40, 3, 3); 
-    createPlatform(66, 6.5, -40, 3, 3, true); 
-    createPlatform(66, 8.5, -50, 4, 4);
-    createPlatform(58, 10.5, -58, 2, 2);
-    // Novos obstáculos adicionais
-    createPlatform(48, 11.5, -58, 2, 2);
-    createPlatform(40, 12.5, -50, 3, 3, true);
-    createPlatform(32, 13.5, -42, 2, 2);
-    createPlatform(32, 14.5, -32, 3, 3);
-    createPlatform(40, 15.5, -25, 2, 2);
-    createPlatform(50, 16.5, -25, 3, 3);
-    createPlatform(60, 17.5, -30, 2, 6, true);
-    createPlatform(60, 18.5, -45, 4, 4);
-    createPlatform(50, 19.5, -55, 3, 3);
-    createPlatform(50, 20.0, -68, 8, 8); // Nova base final
+    // Percurso ajustado para ser mais próximo e jogável
+    createPlatform(50, 0.5, -30, 6, 6);   // Base
+    createPlatform(50, 2.5, -36, 3, 3);   // Aproximado (era -40)
+    createPlatform(55, 4.5, -36, 3, 3);   // Aproximado (era 58, -40)
+    createPlatform(60, 6.5, -36, 3, 3, true); // Móvel aproximado (era 66, -40)
+    createPlatform(60, 8.5, -42, 4, 4);   // Aproximado (era 66, -50)
+    createPlatform(55, 10.5, -48, 2, 2);  // Aproximado (era 58, -58)
+    
+    // Novos obstáculos adicionais (aproximados)
+    createPlatform(49, 11.5, -48, 2, 2);
+    createPlatform(43, 12.5, -42, 3, 3, true);
+    createPlatform(37, 13.5, -36, 2, 2);
+    createPlatform(37, 14.5, -30, 3, 3);
+    createPlatform(43, 15.5, -24, 2, 2);
+    createPlatform(50, 16.5, -24, 3, 3);
+    createPlatform(57, 17.5, -28, 2, 6, true);
+    createPlatform(57, 18.5, -38, 4, 4);
+    createPlatform(50, 19.5, -46, 3, 3);
+    createPlatform(50, 20.0, -55, 8, 8); // Nova base final aproximada
     scene.add(parkourGroup);
 
     const potion = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 0.8), new THREE.MeshStandardMaterial({color: 0x00ff00, emissive: 0x00ff00}));
-    potion.position.set(50, 21.5, -68);
+    potion.position.set(50, 21.5, -55);
     scene.add(potion);
 
     const finalCoins = [];
     let finalCoinsCollected = false;
     for(let i=0; i<5; i++) {
         const c = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.05), new THREE.MeshStandardMaterial({ color: 0x00ff00, metalness: 0.9 }));
-        c.position.set(48 + i, 21, -70);
+        c.position.set(48 + i, 21, -57);
         c.rotation.x = Math.PI/2;
         scene.add(c);
         finalCoins.push(c);
@@ -246,7 +281,7 @@
     camera.add(handGroup);
     scene.add(camera);
 
-    // MÁQUINA
+    // MÁQUINA (mantida original)
     const machine = new THREE.Group();
     const base = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.2, 3.2), new THREE.MeshStandardMaterial({color: 0xcc0000}));
     base.position.y = 0.6; machine.add(base);
@@ -287,7 +322,7 @@
     clawSystem.position.set(0, 4.5, 0); machine.add(clawSystem);
     machine.position.set(0, 0, -10); scene.add(machine);
 
-    // LÓGICA E ESTADOS
+    // LÓGICA E ESTADOS (mantidos originais)
     let playerName = "";
     let coinsCount = 0, prizesLeft = 10;
     let gameState = "SETUP", isClawDescending = false;
@@ -295,7 +330,6 @@
     let moveF = false, moveB = false, moveL = false, moveR = false;
     let velocityY = 0, canJump = true, yaw = 0, pitch = 0, clawOpen = 1;
     let luckTime = 0, isLuckActive = false;
-    // Novos controles de câmera para a máquina
     let clawOrbitAngle = 0;
 
     window.startGame = () => {
@@ -322,7 +356,6 @@
                 pitch = Math.max(-1.5, Math.min(1.5, pitch));
                 camera.rotation.set(pitch, yaw, 0, 'YXZ');
             } else if(gameState === "CLAW") {
-                // Rotação orbital ao redor da máquina
                 clawOrbitAngle -= e.movementX * 0.005;
             }
         }
@@ -384,9 +417,11 @@
     function animate() {
         requestAnimationFrame(animate);
         const time = performance.now() * 0.001;
-        if(leafMat.userData.shader) leafMat.userData.shader.uniforms.time.value = time;
+        
+        // Atualiza o tempo nos shaders da grama e folhas
+        groundMat.uniforms.time.value = time;
+        leafMat.uniforms.time.value = time;
 
-        // Animar pássaros
         birds.forEach(b => {
             b.userData.angle += b.userData.speed;
             b.position.x = Math.cos(b.userData.angle) * b.userData.dist;
@@ -414,7 +449,6 @@
             if (moveL) camera.position.addScaledVector(side, 0.15); if (moveR) camera.position.addScaledVector(side, -0.15);
             if(camera.position.x > 45 && camera.position.y < 0.8) camera.position.copy(parkourStartPos);
         } else if(gameState === "CLAW") {
-            // Câmera orbitando a máquina
             const orbitRadius = 6;
             camera.position.x = machine.position.x + Math.sin(clawOrbitAngle) * orbitRadius;
             camera.position.z = machine.position.z + Math.cos(clawOrbitAngle) * orbitRadius;
