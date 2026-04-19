@@ -2,56 +2,52 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Arcade Park - Day/Night & Admin Chat</title>
+    <title>Arcade Park - Final Fixed Version</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #000; }
         #crosshair {
             position: absolute; top: 50%; left: 50%;
             width: 8px; height: 8px; background: rgba(255,255,255,0.7);
             border-radius: 50%; transform: translate(-50%, -50%);
-            pointer-events: none; border: 1px solid black; mix-blend-mode: difference;
+            pointer-events: none; border: 1px solid black; mix-blend-mode: difference; z-index: 10;
         }
         #ui-layer {
             position: absolute; width: 100%; height: 100%;
             pointer-events: none; display: flex; flex-direction: column;
             justify-content: space-between; align-items: center;
             padding: 30px; box-sizing: border-box; color: white;
-            text-shadow: 2px 2px 8px rgba(0,0,0,0.9);
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.9); z-index: 5;
         }
         .stats-container { display: flex; gap: 20px; pointer-events: auto; }
         .stats {
             background: rgba(0,0,0,0.85); color: #ffd700;
             padding: 10px 25px; border-radius: 30px;
             font-size: 18px; border: 2px solid #ffd700;
-            box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
         }
         #prompt {
             color: white; font-size: 24px; font-weight: bold;
             background: rgba(0,0,0,0.8); padding: 15px 25px; border-radius: 15px;
             display: none; border-bottom: 4px solid #ffd700;
         }
-        #setup-screen, #end-screen {
+        #setup-screen {
             position: absolute; width: 100%; height: 100%; background: radial-gradient(circle, #222 0%, #000 100%);
-            display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100;
+            display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 200;
         }
-        #end-screen { display: none; z-index: 101; color: white; }
-        input { padding: 12px; font-size: 20px; border-radius: 8px; border: 2px solid #ffd700; margin: 10px; width: 280px; background: #111; color: white; }
-        button { padding: 12px 30px; font-size: 20px; cursor: pointer; background: #ffd700; border: none; border-radius: 8px; font-weight: bold; transition: 0.3s; }
-        button:hover { background: #fff; transform: scale(1.05); }
+        input { padding: 12px; font-size: 20px; border-radius: 8px; border: 2px solid #ffd700; margin: 10px; width: 280px; background: #111; color: white; pointer-events: auto; }
+        button { padding: 12px 30px; font-size: 20px; cursor: pointer; background: #ffd700; border: none; border-radius: 8px; font-weight: bold; pointer-events: auto; }
         
-        /* CHAT STYLE */
+        /* CHAT SYSTEM */
         #chat-container {
             position: absolute; bottom: 20px; left: 20px; width: 350px;
-            background: rgba(0,0,0,0.6); border-radius: 10px; display: flex; flex-direction: column;
-            pointer-events: auto; border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(0,0,0,0.7); border-radius: 10px; display: flex; flex-direction: column;
+            pointer-events: auto; border: 1px solid rgba(255,255,255,0.2); z-index: 150;
         }
-        #chat-messages { height: 150px; overflow-y: auto; padding: 10px; color: white; font-size: 14px; display: flex; flex-direction: column-reverse; }
-        #chat-input { background: rgba(0,0,0,0.8); border: none; padding: 10px; color: #00ff88; outline: none; border-top: 1px solid #333; display: none; width: calc(100% - 20px); }
+        #chat-messages { height: 120px; overflow-y: auto; padding: 10px; color: white; font-size: 13px; display: flex; flex-direction: column-reverse; }
+        #chat-input { 
+            background: #000; border: 1px solid #ffd700; padding: 10px; color: #00ff88; 
+            outline: none; display: none; width: calc(100% - 22px); margin: 5px auto; font-size: 14px;
+        }
 
-        #leaderboard {
-            position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.85);
-            padding: 15px; border-radius: 12px; border: 1px solid #ffd700; color: #fff; font-size: 14px;
-        }
         #game-info {
             position: absolute; top: 100px; right: 20px;
             background: rgba(0,0,0,0.9); color: white; padding: 20px;
@@ -62,33 +58,20 @@
 <body>
 
     <div id="setup-screen">
-        <h1 style="color: #ffd700; font-size: 48px; letter-spacing: 2px;">ARCADE PARK</h1>
-        <input type="number" id="total-players" value="1" min="1" max="10" title="Jogadores">
+        <h1 style="color: #ffd700; font-size: 48px;">ARCADE PARK</h1>
         <input type="text" id="player-name" placeholder="Seu Nome..." maxlength="15">
-        <button onclick="startGame()">INICIAR</button>
-    </div>
-
-    <div id="end-screen">
-        <h1 id="end-title">FIM DA RODADA</h1>
-        <p id="final-stats"></p>
-        <p id="winner-announcement"></p>
-        <button id="next-player-btn" onclick="prepareNextTurn()">PRÓXIMO</button>
-    </div>
-
-    <div id="leaderboard">
-        <strong style="color: #ffd700;">RANKING:</strong>
-        <div id="score-list"></div>
+        <button onclick="startGame()">INICIAR JOGO</button>
     </div>
 
     <div id="chat-container">
-        <div id="chat-messages"></div>
-        <input type="text" id="chat-input" placeholder="Digite [Enter] para enviar...">
+        <div id="chat-messages"><div>Bem-vindo! Aperte ENTER para o Chat.</div></div>
+        <input type="text" id="chat-input" placeholder="Comando ADM ou mensagem...">
     </div>
 
     <div id="crosshair"></div>
     <div id="ui-layer">
         <div class="stats-container">
-            <div id="coin-display" class="stats">MOEDAS: <span id="coin-val">0</span></div>
+            <div class="stats">MOEDAS: <span id="coin-val">0</span></div>
             <div class="stats" style="color: #00ffcc;">ITENS: <span id="prizes-val">10</span></div>
             <div class="stats" style="color: #ff4444;">TEMPO: <span id="timer-val">0.0</span>s</div>
         </div>
@@ -96,10 +79,8 @@
     </div>
 
     <div id="game-info">
-        <h2 style="color:#00ffff; margin-top:0">COMANDOS GARRA</h2>
-        <ul style="list-style:none; padding:0">
-            <li>SETAS: Mover Garra | ESPAÇO: Pegar | ESC: Sair</li>
-        </ul>
+        <h2 style="color:#00ffff; margin:0">CONTROLE DA GARRA</h2>
+        <p>Setas: Mover | Espaço: Pegar | Esc: Sair</p>
     </div>
 
 <script type="importmap">
@@ -116,177 +97,165 @@
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
     document.body.appendChild(renderer.domElement);
 
     // --- CICLO DIA E NOITE ---
-    let timeScale = 1; // 1x = 10 min por ciclo completo (5 min dia / 5 min noite)
-    let dayTime = 0; 
-    const sunLight = new THREE.DirectionalLight(0xffffff, 2.5);
+    let timeScale = 1;
+    let dayTime = 1500; // Começa de dia
+    const sunLight = new THREE.DirectionalLight(0xffffff, 2);
     sunLight.castShadow = true;
-    sunLight.shadow.mapSize.set(2048, 2048);
+    sunLight.shadow.mapSize.set(1024, 1024);
     scene.add(sunLight);
 
-    const moonLight = new THREE.DirectionalLight(0x4444ff, 0.5);
-    scene.add(moonLight);
-
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
     scene.add(ambientLight);
 
     const skyBox = new THREE.Mesh(new THREE.SphereGeometry(450, 32, 32), new THREE.MeshBasicMaterial({ side: THREE.BackSide }));
     scene.add(skyBox);
 
-    // --- TERRENO E FLORA ---
+    // --- CHÃO E ÁRVORES ---
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000), new THREE.MeshStandardMaterial({ color: 0x2d5a27 }));
     ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
 
-    function createTree(x, z) {
-        const type = Math.random();
+    for(let i=0; i<50; i++) {
+        const h = 4 + Math.random()*4;
         const tree = new THREE.Group();
-        let h = 3 + Math.random() * 5;
-        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, h), new THREE.MeshStandardMaterial({color: 0x3d2b1f}));
-        trunk.position.y = h/2; trunk.castShadow = true; tree.add(trunk);
-        
-        let fol;
-        if(type < 0.4) fol = new THREE.Mesh(new THREE.ConeGeometry(2, h, 8), new THREE.MeshStandardMaterial({color: 0x1b4d1c}));
-        else fol = new THREE.Mesh(new THREE.DodecahedronGeometry(h/2, 1), new THREE.MeshStandardMaterial({color: 0x225522}));
-        fol.position.y = h; fol.castShadow = true; tree.add(fol);
-        tree.position.set(x, 0, z); scene.add(tree);
-    }
-    for(let i=0; i<60; i++) {
-        let x = Math.random()*200-100, z = Math.random()*200-100;
-        if(Math.abs(x) > 15 || Math.abs(z) > 20) createTree(x, z);
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.6, h), new THREE.MeshStandardMaterial({color:0x3d2b1f}));
+        const fol = new THREE.Mesh(new THREE.DodecahedronGeometry(h/1.8), new THREE.MeshStandardMaterial({color:0x1b4d1c}));
+        fol.position.y = h; trunk.position.y = h/2;
+        tree.add(trunk, fol);
+        tree.position.set(Math.random()*180-90, 0, Math.random()*180-90);
+        if(tree.position.distanceTo(new THREE.Vector3(0,0,-12)) > 15) scene.add(tree);
     }
 
     // --- ANIMAIS DETALHADOS ---
     const animals = [];
-    const createAnimal = (type) => {
+    function spawnAnimal(type) {
         const group = new THREE.Group();
         const mat = new THREE.MeshStandardMaterial({color: type === 'rabbit' ? 0xffffff : 0xd35400});
-        const eyeMat = new THREE.MeshBasicMaterial({color: 0x000000});
-
-        if(type === 'rabbit') {
-            const body = new THREE.Mesh(new THREE.SphereGeometry(0.25, 8, 8), mat);
-            const head = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8), mat);
-            head.position.set(0, 0.3, 0.2);
-            // Olhos e Nariz
-            const e1 = new THREE.Mesh(new THREE.SphereGeometry(0.02), eyeMat); e1.position.set(0.08, 0.35, 0.35);
-            const e2 = new THREE.Mesh(new THREE.SphereGeometry(0.02), eyeMat); e2.position.set(-0.08, 0.35, 0.35);
-            group.add(body, head, e1, e2);
-        } else {
-            const body = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.4, 0.4), mat);
-            const head = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), mat);
-            head.position.set(0.4, 0.3, 0);
-            const e1 = new THREE.Mesh(new THREE.SphereGeometry(0.03), eyeMat); e1.position.set(0.5, 0.4, 0.1);
-            const e2 = new THREE.Mesh(new THREE.SphereGeometry(0.03), eyeMat); e2.position.set(0.5, 0.4, -0.1);
-            const tail = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.5), new THREE.MeshStandardMaterial({color: 0xffffff}));
-            tail.position.set(-0.4, 0.3, 0); tail.rotation.z = Math.PI/2;
-            group.add(body, head, e1, e2, tail);
-        }
-        
-        group.castShadow = true;
-        let rx = Math.random()*160-80, rz = Math.random()*160-80;
-        group.position.set(rx, 0, rz);
+        const body = new THREE.Mesh(type === 'rabbit' ? new THREE.SphereGeometry(0.3) : new THREE.BoxGeometry(0.7, 0.4, 0.4), mat);
+        const head = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), mat);
+        head.position.set(type === 'rabbit' ? 0 : 0.4, 0.3, type === 'rabbit' ? 0.2 : 0);
+        const eye = new THREE.Mesh(new THREE.SphereGeometry(0.03), new THREE.MeshBasicMaterial({color:0}));
+        const e1 = eye.clone(); e1.position.set(0.1, 0.1, 0.15); head.add(e1);
+        const e2 = eye.clone(); e2.position.set(-0.1, 0.1, 0.15); head.add(e2);
+        group.add(body, head);
+        group.position.set(Math.random()*100-50, 0, Math.random()*100-50);
         scene.add(group);
-        animals.push({mesh: group, type, angle: Math.random()*Math.PI*2, state: 'idle', timer: 100});
-    };
-    for(let i=0; i<3; i++) createAnimal('rabbit');
-    for(let i=0; i<2; i++) createAnimal('fox');
-
-    // --- OBJETOS DE JOGO (MOEDAS, MAQUINA, PARKOUR) ---
-    const coins = [];
-    for(let i=0; i<35; i++) {
-        const c = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.02), new THREE.MeshStandardMaterial({color: 0xffd700, metalness: 0.8}));
-        c.position.set(Math.random()*100-50, 0.2, Math.random()*100-50);
-        c.rotation.x = Math.PI/2; scene.add(c); coins.push(c);
+        animals.push({mesh: group, type, angle: Math.random()*6, state: 'idle', timer: 100});
     }
+    for(let i=0; i<3; i++) spawnAnimal('rabbit');
+    for(let i=0; i<2; i++) spawnAnimal('fox');
 
-    // Máquina e Garra (Versão Simplificada conforme a anterior)
+    // --- MÁQUINA DE PRÊMIOS ---
     const machine = new THREE.Group();
-    const glass = new THREE.Mesh(new THREE.BoxGeometry(3.3, 2.7, 3.3), new THREE.MeshPhysicalMaterial({transparent: true, opacity: 0.2, color: 0xffffff, roughness: 0}));
-    glass.position.y = 2.7; machine.add(glass);
-    const mBase = new THREE.Mesh(new THREE.BoxGeometry(3.5, 1.2, 3.5), new THREE.MeshStandardMaterial({color: 0x880000}));
+    const mBase = new THREE.Mesh(new THREE.BoxGeometry(3.5, 1.2, 3.5), new THREE.MeshStandardMaterial({color: 0xaa0000}));
     mBase.position.y = 0.6; machine.add(mBase);
+    const mGlass = new THREE.Mesh(new THREE.BoxGeometry(3.3, 2.8, 3.3), new THREE.MeshPhysicalMaterial({transparent:true, opacity:0.3, transmission: 0.9}));
+    mGlass.position.y = 2.6; machine.add(mGlass);
     machine.position.set(0, 0, -12); scene.add(machine);
 
     const prizes = [];
     for(let i=0; i<10; i++) {
-        const p = new THREE.Mesh(new THREE.SphereGeometry(0.25), new THREE.MeshStandardMaterial({color: Math.random()*0xffffff}));
-        p.position.set((Math.random()-0.5)*2.5, 1.5, (Math.random()-0.5)*2.5); machine.add(p); prizes.push(p);
+        const p = new THREE.Mesh(new THREE.SphereGeometry(0.3), new THREE.MeshStandardMaterial({color: Math.random()*0xffffff}));
+        p.position.set((Math.random()-0.5)*2.5, 1.5, (Math.random()-0.5)*2.5);
+        machine.add(p); prizes.push(p);
     }
 
-    const claw = new THREE.Group();
-    const clawBody = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3), new THREE.MeshStandardMaterial({color: 0x333333}));
-    clawBody.position.y = 1.5; claw.add(clawBody);
-    claw.position.set(0, 4, 0); machine.add(claw);
+    const clawGroup = new THREE.Group();
+    const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05, 4), new THREE.MeshStandardMaterial({color:0x333333}));
+    cable.position.y = 2; clawGroup.add(cable);
+    clawGroup.position.set(0, 4, 0); machine.add(clawGroup);
 
-    // --- LÓGICA DE JOGO ---
-    let coinsCount = 0, isChatting = false, prizesLeft = 10;
-    let gameState = "SETUP", startTime = 0;
-    let moveF = 0, moveB = 0, moveL = 0, moveR = 0, yaw = 0, pitch = 0;
+    // --- LÓGICA DO JOGO ---
+    let coinsCount = 0, prizesLeft = 10, gameState = "SETUP", startTime = 0;
+    let isChatting = false, move = {f:0, b:0, l:0, r:0}, yaw = 0, pitch = 0;
+    let isDescending = false;
 
-    // Chat / ADM System
+    // CHAT & ADM
     const chatIn = document.getElementById('chat-input');
-    const chatMsg = document.getElementById('chat-messages');
+    const chatMsgs = document.getElementById('chat-messages');
 
-    function logChat(text, color = "white") {
-        const div = document.createElement('div');
-        div.style.color = color;
-        div.innerText = text;
-        chatMsg.prepend(div);
+    function log(msg, color="#fff") {
+        const d = document.createElement('div'); d.style.color = color; d.innerText = msg;
+        chatMsgs.prepend(d);
     }
 
-    function handleCommand(cmd) {
-        cmd = cmd.toUpperCase().trim();
-        if(cmd.startsWith("MOEDAS =")) {
-            const val = parseInt(cmd.split("=")[1]);
-            if(!isNaN(val)) {
-                coinsCount = val;
-                document.getElementById('coin-val').innerText = coinsCount;
-                logChat(`ADM: Moedas definidas para ${val}`, "#ffd700");
-            }
-        } else if(cmd.startsWith("TEMPO =")) {
-            const val = parseFloat(cmd.split("=")[1]);
-            if(!isNaN(val)) {
-                timeScale = val;
-                logChat(`ADM: Velocidade do tempo: ${val}x`, "#00ffff");
-            }
+    function runCmd(c) {
+        c = c.toUpperCase();
+        if(c.includes("MOEDAS =")) {
+            coinsCount = parseInt(c.split("=")[1]) || 0;
+            document.getElementById('coin-val').innerText = coinsCount;
+            log("ADM: Moedas atualizadas!", "#ffd700");
+        } else if(c.includes("TEMPO =")) {
+            timeScale = parseFloat(c.split("=")[1]) || 1;
+            log("ADM: Tempo acelerado!", "#00ffff");
         }
     }
+
+    window.startGame = () => {
+        if(!document.getElementById('player-name').value) return;
+        document.getElementById('setup-screen').style.display = "none";
+        gameState = "WALK"; startTime = Date.now();
+        document.body.requestPointerLock();
+    };
 
     document.addEventListener('keydown', (e) => {
         if(e.key === "Enter") {
             isChatting = !isChatting;
             chatIn.style.display = isChatting ? "block" : "none";
-            if(isChatting) { chatIn.focus(); document.exitPointerLock(); }
-            else {
-                if(chatIn.value) { handleCommand(chatIn.value); chatIn.value = ""; }
+            if(isChatting) { document.exitPointerLock(); chatIn.focus(); }
+            else { 
+                if(chatIn.value) { runCmd(chatIn.value); chatIn.value = ""; }
                 if(gameState === "WALK") document.body.requestPointerLock();
             }
+            return;
         }
         if(isChatting) return;
-        if(e.code === 'KeyW') moveF = 1; if(e.code === 'KeyS') moveB = 1;
-        if(e.code === 'KeyA') moveL = 1; if(e.code === 'KeyD') moveR = 1;
-        if(e.code === 'KeyE') interact();
-    });
-    document.addEventListener('keyup', (e) => {
-        if(e.code === 'KeyW') moveF = 0; if(e.code === 'KeyS') moveB = 0;
-        if(e.code === 'KeyA') moveL = 0; if(e.code === 'KeyD') moveR = 0;
-    });
 
-    function interact() {
-        coins.forEach(c => { if(c.visible && camera.position.distanceTo(c.position) < 3) { c.visible = false; coinsCount++; document.getElementById('coin-val').innerText = coinsCount; }});
-        if(camera.position.distanceTo(new THREE.Vector3(0,0,-12)) < 5 && coinsCount > 0) {
-            gameState = "CLAW"; document.getElementById('game-info').style.display = "block";
-            camera.position.set(0, 4, -8); camera.lookAt(0,2,-12);
+        if(gameState === "WALK") {
+            if(e.code === 'KeyW') move.f = 1; if(e.code === 'KeyS') move.b = 1;
+            if(e.code === 'KeyA') move.l = 1; if(e.code === 'KeyD') move.r = 1;
+            if(e.code === 'KeyE') {
+                if(camera.position.distanceTo(new THREE.Vector3(0,0,-12)) < 5 && coinsCount > 0) {
+                    gameState = "CLAW"; document.exitPointerLock();
+                    document.getElementById('game-info').style.display = "block";
+                    camera.position.set(0, 5, -7); camera.lookAt(0, 2, -12);
+                }
+            }
+        } else if(gameState === "CLAW" && !isDescending) {
+            if(e.code === 'ArrowLeft') clawGroup.position.x -= 0.1;
+            if(e.code === 'ArrowRight') clawGroup.position.x += 0.1;
+            if(e.code === 'ArrowUp') clawGroup.position.z -= 0.1;
+            if(e.code === 'ArrowDown') clawGroup.position.z += 0.1;
+            if(e.code === 'Space') startClaw();
+            if(e.code === 'Escape') { gameState = "WALK"; document.getElementById('game-info').style.display = "none"; document.body.requestPointerLock(); }
         }
-    }
+    });
 
-    window.startGame = () => {
-        document.getElementById('setup-screen').style.display = "none";
-        gameState = "WALK"; startTime = Date.now();
-        document.body.requestPointerLock();
-    };
+    document.addEventListener('keyup', (e) => {
+        if(e.code === 'KeyW') move.f = 0; if(e.code === 'KeyS') move.b = 0;
+        if(e.code === 'KeyA') move.l = 0; if(e.code === 'KeyD') move.r = 0;
+    });
+
+    function startClaw() {
+        isDescending = true;
+        let step = 0;
+        const int = setInterval(() => {
+            if(step < 40) clawGroup.position.y -= 0.05;
+            else if(step < 80) {
+                prizes.forEach(p => {
+                    if(p.visible && p.position.distanceTo(new THREE.Vector3(clawGroup.position.x, 1.5, clawGroup.position.z)) < 0.6) {
+                        p.visible = false; prizesLeft--; coinsCount--;
+                        document.getElementById('prizes-val').innerText = prizesLeft;
+                        document.getElementById('coin-val').innerText = coinsCount;
+                    }
+                });
+                clawGroup.position.y += 0.05;
+            } else { clearInterval(int); isDescending = false; if(coinsCount <= 0) { gameState="WALK"; document.getElementById('game-info').style.display="none"; } }
+            step++;
+        }, 30);
+    }
 
     document.addEventListener('mousemove', (e) => {
         if(document.pointerLockElement && !isChatting) {
@@ -299,62 +268,42 @@
     function animate() {
         requestAnimationFrame(animate);
 
-        // --- CICLO DIA/NOITE LOGIC ---
-        // Ciclo completo em 600 segundos (10 min) na escala 1x
-        dayTime += (0.01 * timeScale); 
-        const cycle = (dayTime * 0.001); 
-        const sunAngle = cycle; 
-        
-        sunLight.position.set(Math.cos(sunAngle)*100, Math.sin(sunAngle)*100, 50);
-        moonLight.position.set(-Math.cos(sunAngle)*100, -Math.sin(sunAngle)*100, 50);
+        // Ciclo Dia/Noite
+        dayTime += 0.1 * timeScale;
+        const angle = dayTime * 0.001;
+        sunLight.position.set(Math.cos(angle)*100, Math.sin(angle)*100, 20);
+        const intensity = Math.max(0, Math.sin(angle));
+        skyBox.material.color.setHSL(0.6, 0.5, intensity * 0.4 + 0.05);
+        ambientLight.intensity = intensity * 0.8 + 0.1;
+        scene.fog.color.setHSL(0.6, 0.5, intensity * 0.4);
 
-        // Cores do Céu
-        const dayIntensity = Math.max(0, Math.sin(sunAngle));
-        const nightIntensity = Math.max(0, -Math.sin(sunAngle));
-        
-        scene.fog.color.setHSL(0.6, 0.5, dayIntensity * 0.5);
-        skyBox.material.color.setHSL(0.6, 0.5, dayIntensity * 0.4 + 0.05);
-        ambientLight.intensity = 0.1 + dayIntensity * 0.6;
-        sunLight.intensity = dayIntensity * 2;
-        moonLight.intensity = nightIntensity * 0.5;
-
-        // --- MOVIMENTO ANIMAIS ---
+        // Animais
         animals.forEach(a => {
             a.timer--;
-            if(a.mesh.position.distanceTo(camera.position) < 8) {
-                a.state = 'run'; a.timer = 100;
-                const dir = new THREE.Vector3().subVectors(a.mesh.position, camera.position).normalize();
-                a.angle = Math.atan2(dir.x, dir.z);
-            }
-            if(a.timer <= 0) {
-                a.state = Math.random() > 0.5 ? 'walk' : 'idle';
-                a.timer = 100 + Math.random()*200;
-                a.angle = Math.random()*Math.PI*2;
-            }
+            if(a.mesh.position.distanceTo(camera.position) < 7) { a.state = 'run'; a.timer = 50; a.angle = Math.atan2(a.mesh.position.x - camera.position.x, a.mesh.position.z - camera.position.z); }
+            if(a.timer <= 0) { a.state = Math.random() > 0.4 ? 'walk' : 'idle'; a.timer = 100 + Math.random()*100; a.angle = Math.random()*6; }
             if(a.state !== 'idle') {
-                const spd = a.state === 'run' ? 0.15 : 0.05;
-                a.mesh.position.x += Math.sin(a.angle) * spd;
-                a.mesh.position.z += Math.cos(a.angle) * spd;
-                a.mesh.rotation.y = a.angle + Math.PI;
+                const s = a.state === 'run' ? 0.2 : 0.04;
+                a.mesh.position.x += Math.sin(a.angle)*s; a.mesh.position.z += Math.cos(a.angle)*s;
+                a.mesh.rotation.y = a.angle;
                 if(a.type === 'rabbit') a.mesh.position.y = Math.abs(Math.sin(Date.now()*0.01))*0.2;
             }
         });
 
-        // --- MOVIMENTO PLAYER ---
+        // Movimento
         if(gameState === "WALK" && !isChatting) {
-            const dir = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion); dir.y = 0; dir.normalize();
-            const side = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0), dir);
-            if(moveF) camera.position.addScaledVector(dir, 0.15);
-            if(moveB) camera.position.addScaledVector(dir, -0.15);
-            if(moveL) camera.position.addScaledVector(side, 0.15);
-            if(moveR) camera.position.addScaledVector(side, -0.15);
+            const d = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion); d.y = 0; d.normalize();
+            const s = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0), d);
+            if(move.f) camera.position.addScaledVector(d, 0.15); if(move.b) camera.position.addScaledVector(d, -0.15);
+            if(move.l) camera.position.addScaledVector(s, 0.15); if(move.r) camera.position.addScaledVector(s, -0.15);
             document.getElementById('timer-val').innerText = ((Date.now() - startTime)/1000).toFixed(1);
+            document.getElementById('prompt').style.display = camera.position.distanceTo(new THREE.Vector3(0,0,-12)) < 5 ? "block" : "none";
         }
 
         renderer.render(scene, camera);
     }
     animate();
-
+    window.addEventListener('resize', () => { camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
 </script>
 </body>
 </html>
