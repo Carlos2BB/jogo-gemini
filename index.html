@@ -62,7 +62,7 @@
     <div id="crosshair"></div>
     <div id="ui-layer">
         <div class="stats-container">
-            <div class="stats">MOEDAS: <span id="coin-val">0</span></div>
+            <div id="coin-display" class="stats">MOEDAS: <span id="coin-val">0</span></div>
             <div class="stats" style="color: #00ffcc; border-color: #00ffcc;">RESTAM: <span id="prizes-val">10</span></div>
             <div class="stats" style="color: #ff4444; border-color: #ff4444;">TEMPO: <span id="timer-val">0.0</span>s</div>
             <button id="reset-btn" style="display:none" onclick="location.reload()">NOVO JOGO</button>
@@ -194,7 +194,7 @@
         }
     }
 
-    // --- NOVO: BAÚ E POÇÃO (ADICIONADO AO FINAL DO PARKOUR) ---
+    // BAÚ E POÇÃO
     const lastPlat = platforms[platforms.length - 1];
     const chestGroup = new THREE.Group();
     const chestBase = new THREE.Mesh(new THREE.BoxGeometry(1, 0.6, 0.7), new THREE.MeshStandardMaterial({color: 0x5D4037}));
@@ -214,7 +214,6 @@
 
     chestGroup.position.set(lastPlat.position.x, lastPlat.position.y + 0.5, lastPlat.position.z);
     scene.add(chestGroup);
-    // ---------------------------------------------------------
 
     // MÃO
     const handGroup = new THREE.Group();
@@ -280,6 +279,23 @@
     const jumpForce = 0.18; 
     const gravity = 0.007;
 
+    // --- LOGICA DA POÇÃO ---
+    let isLucky = false;
+    let luckTimeout = null;
+
+    function activateLuck() {
+        isLucky = true;
+        document.getElementById('coin-display').style.borderColor = '#00ff00';
+        document.getElementById('coin-display').style.color = '#00ff00';
+        
+        if(luckTimeout) clearTimeout(luckTimeout);
+        luckTimeout = setTimeout(() => {
+            isLucky = false;
+            document.getElementById('coin-display').style.borderColor = '#ffd700';
+            document.getElementById('coin-display').style.color = '#ffd700';
+        }, 30000);
+    }
+
     window.startGame = () => {
         const input = document.getElementById('player-name');
         if(input.value.trim() === "") return;
@@ -321,18 +337,17 @@
             if(e.code === 'KeyA') moveL = true; if(e.code === 'KeyD') moveR = true;
             if(e.code === 'Space' && isGrounded) { velocityY = jumpForce; isGrounded = false; }
             if(e.code === 'KeyE') {
-                // Interação com moedas normais
                 coins.forEach(c => { if(c.visible && camera.position.distanceTo(c.position) < 3) { 
                     c.visible = false; coinsCount++; 
                     document.getElementById('coin-val').innerText = coinsCount;
                     collectCoinAnim();
                 }});
 
-                // --- NOVO: INTERAÇÃO COM O BAÚ ---
                 if(chestGroup.visible && camera.position.distanceTo(chestGroup.position) < 3) {
                     chestGroup.visible = false;
                     coinsCount += 10;
                     document.getElementById('coin-val').innerText = coinsCount;
+                    activateLuck(); // ATIVA A SORTE
                     collectCoinAnim();
                 }
 
@@ -384,7 +399,12 @@
             } else {
                 if(caughtPrize) { 
                     caughtPrize.visible = false; 
-                    prizesLeft--;
+                    
+                    // --- EFEITO DE SORTE AQUI ---
+                    let prizeValue = isLucky ? 2 : 1;
+                    prizesLeft -= prizeValue;
+                    if(prizesLeft < 0) prizesLeft = 0;
+                    
                     coinsCount--;
                     document.getElementById('coin-val').innerText = coinsCount;
                     document.getElementById('prizes-val').innerText = prizesLeft;
