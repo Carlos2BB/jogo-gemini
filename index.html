@@ -142,7 +142,7 @@
     );
     ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
 
-    // --- ÁRVORES DIVERSIFICADAS ---
+    // ÁRVORES
     const trunkMat = new THREE.MeshStandardMaterial({color:0x3d2b1f, roughness: 0.9});
     const foliageMat = new THREE.MeshStandardMaterial({color:0x1b4d1c, roughness: 0.7});
 
@@ -152,26 +152,14 @@
             const tree = new THREE.Group();
             const treeType = Math.random();
             let trunkH, trunkR, foliageGeo;
-
-            if (treeType < 0.4) {
-                trunkH = 6 + Math.random() * 3; trunkR = 0.3 + Math.random() * 0.2;
-                foliageGeo = new THREE.ConeGeometry(2, trunkH * 0.8, 8);
-            } else if (treeType < 0.7) {
-                trunkH = 3 + Math.random() * 2; trunkR = 0.5 + Math.random() * 0.3;
-                foliageGeo = new THREE.DodecahedronGeometry(3 + Math.random(), 1);
-            } else {
-                trunkH = 4.5 + Math.random() * 2.5; trunkR = 0.4 + Math.random() * 0.2;
-                foliageGeo = new THREE.SphereGeometry(2.5, 12, 12);
-                foliageGeo.scale(1, 1.4, 1);
-            }
+            if (treeType < 0.4) { trunkH = 6 + Math.random() * 3; trunkR = 0.3; foliageGeo = new THREE.ConeGeometry(2, trunkH * 0.8, 8); }
+            else if (treeType < 0.7) { trunkH = 3 + Math.random() * 2; trunkR = 0.5; foliageGeo = new THREE.DodecahedronGeometry(3, 1); }
+            else { trunkH = 4.5 + Math.random() * 2.5; trunkR = 0.4; foliageGeo = new THREE.SphereGeometry(2.5, 12, 12); foliageGeo.scale(1, 1.4, 1); }
             const trunk = new THREE.Mesh(new THREE.CylinderGeometry(trunkR*0.7, trunkR, trunkH), trunkMat);
-            trunk.castShadow = true; trunk.receiveShadow = true; trunk.position.y = trunkH / 2; tree.add(trunk);
+            trunk.position.y = trunkH / 2; tree.add(trunk);
             const foliage = new THREE.Mesh(foliageGeo, foliageMat);
-            foliage.castShadow = true; foliage.receiveShadow = true;
-            if (treeType < 0.4) foliage.position.y = trunkH * 0.7;
-            else foliage.position.y = trunkH + (foliageGeo.type === 'SphereGeometry' ? 1.5 : 0);
-            tree.add(foliage);
-            tree.position.set(x, 0, z); scene.add(tree);
+            foliage.position.y = trunkH + (foliageGeo.type === 'SphereGeometry' ? 0 : 1);
+            tree.add(foliage); tree.position.set(x, 0, z); scene.add(tree);
         }
     }
 
@@ -190,14 +178,13 @@
         bird.rotation.x = Math.PI/2; scene.add(bird); birds.push({mesh: bird, speed: 0.15 + Math.random()*0.3});
     }
 
-    // --- ANIMAIS ---
+    // ANIMAIS
     const animals = [];
     const createAnimalMat = (color) => new THREE.MeshStandardMaterial({color: color, roughness: 0.8});
     for(let i=0; i<3; i++) {
         const rabbit = new THREE.Group();
         const body = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 10), createAnimalMat(0xeeeeee));
-        body.position.y = 0.22; const head = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 8), createAnimalMat(0xeeeeee));
-        head.position.set(0, 0.38, 0.18); rabbit.add(body, head);
+        body.position.y = 0.22; rabbit.add(body);
         let rx, rz; do { rx = Math.random() * 160 - 80; rz = Math.random() * 160 - 80; } while (Math.abs(rx) < 20 && Math.abs(rz) < 25);
         rabbit.position.set(rx, 0, rz); scene.add(rabbit);
         animals.push({ mesh: rabbit, type: 'rabbit', baseSpeed: 0.04 + Math.random()*0.02, currentSpeed: 0, angle: Math.random() * Math.PI * 2, state: 'idle', stateTimer: 0 });
@@ -226,7 +213,9 @@
 
     const chestGroup = new THREE.Group();
     const chestBase = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.8, 0.8), new THREE.MeshStandardMaterial({color: 0x4a3728}));
-    chestGroup.add(chestBase); chestGroup.position.set(platforms[14].position.x, platforms[14].position.y + 0.6, platforms[14].position.z); scene.add(chestGroup);
+    const potion = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, 0.5, 16), new THREE.MeshStandardMaterial({color: 0x00ff88, emissive: 0x00ff88, emissiveIntensity: 0.5}));
+    potion.position.y = 0.6; chestGroup.add(chestBase, potion);
+    chestGroup.position.set(platforms[14].position.x, platforms[14].position.y + 0.6, platforms[14].position.z); scene.add(chestGroup);
 
     const machine = new THREE.Group();
     const machineBase = new THREE.Mesh(new THREE.BoxGeometry(3.5, 1.2, 3.5), new THREE.MeshStandardMaterial({color: 0x880000}));
@@ -289,6 +278,15 @@
             if(e.code === 'Space' && isGrounded) { velocityY = 0.2; isGrounded = false; }
             if(e.code === 'KeyE') {
                 coins.forEach(c => { if(c.visible && camera.position.distanceTo(c.position) < 3.5) { c.visible = false; coinsCount++; document.getElementById('coin-val').innerText = coinsCount; }});
+                
+                // Interação com o Baú no final do parkour
+                if(chestGroup.visible && camera.position.distanceTo(chestGroup.position) < 3.5) {
+                    chestGroup.visible = false; coinsCount += 10; isLucky = true;
+                    document.getElementById('coin-val').innerText = coinsCount;
+                    document.getElementById('coin-display').style.color = '#00ff00';
+                    setTimeout(() => { isLucky = false; document.getElementById('coin-display').style.color = '#ffd700'; }, 30000);
+                }
+
                 if(camera.position.distanceTo(new THREE.Vector3(0,0,-12)) < 5 && coinsCount > 0) {
                     gameState = "CLAW"; document.exitPointerLock(); document.getElementById('game-info').style.display = 'block';
                     camera.position.set(0, 4.0, -7.5); camera.lookAt(0, 3, -12);
@@ -313,7 +311,7 @@
             else if(stage === "GRAB") { clawOpen -= 0.1; if(clawOpen <= 0) { prizesInside.forEach(p => { if(p.visible && p.position.distanceTo(new THREE.Vector3(clawSystem.position.x, 1.55, clawSystem.position.z)) < 0.5) caughtPrize = p; }); stage = "UP"; } }
             else if(stage === "UP") { clawSystem.position.y += 0.04; if(caughtPrize) caughtPrize.position.set(clawSystem.position.x, clawSystem.position.y - 0.45, clawSystem.position.z); if(clawSystem.position.y >= 4.0) stage = "DONE"; }
             else {
-                if(caughtPrize) { caughtPrize.visible = false; prizesLeft--; document.getElementById('prizes-val').innerText = prizesLeft; coinsCount--; document.getElementById('coin-val').innerText = coinsCount; if(prizesLeft <= 0) location.reload(); }
+                if(caughtPrize) { caughtPrize.visible = false; prizesLeft -= (isLucky ? 2 : 1); document.getElementById('prizes-val').innerText = Math.max(0, prizesLeft); coinsCount--; document.getElementById('coin-val').innerText = coinsCount; if(prizesLeft <= 0) location.reload(); }
                 clawOpen = 1; clearInterval(interval); isClawDescending = false;
             }
         }, 20);
@@ -322,6 +320,30 @@
     function animate() {
         requestAnimationFrame(animate);
         pinchers.forEach(p => p.rotation.x = 0.8 * (1 - clawOpen));
+        
+        // ANIMAÇÃO PÁSSAROS
+        birds.forEach(b => { 
+            b.mesh.position.z += b.speed; 
+            b.mesh.position.y += Math.sin(Date.now() * 0.002) * 0.02;
+            if(b.mesh.position.z > 200) b.mesh.position.z = -200; 
+        });
+
+        // ANIMAÇÃO ANIMAIS
+        animals.forEach(a => {
+            a.stateTimer--;
+            if (a.stateTimer <= 0) {
+                a.state = a.state === 'idle' ? 'walking' : 'idle';
+                a.stateTimer = Math.random() * 200 + 100;
+                a.angle = Math.random() * Math.PI * 2;
+                a.currentSpeed = a.state === 'walking' ? a.baseSpeed : 0;
+            }
+            if (a.state === 'walking') {
+                a.mesh.position.x += Math.sin(a.angle) * a.currentSpeed;
+                a.mesh.position.z += Math.cos(a.angle) * a.currentSpeed;
+                a.mesh.rotation.y = a.angle + Math.PI;
+            }
+        });
+
         if(gameActive) document.getElementById('timer-val').innerText = ((Date.now() - startTime) / 1000).toFixed(1);
         
         if(gameState === "WALK") {
