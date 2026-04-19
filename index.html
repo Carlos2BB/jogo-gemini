@@ -33,6 +33,10 @@
             position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.9);
             display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100;
         }
+        #end-screen {
+            position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.9);
+            display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 101; color: white;
+        }
         input { padding: 10px; font-size: 20px; border-radius: 5px; border: none; margin: 10px; width: 250px; }
         button { padding: 10px 20px; font-size: 20px; cursor: pointer; background: #ffd700; border: none; border-radius: 5px; font-weight: bold; margin: 5px; }
         #leaderboard {
@@ -44,7 +48,6 @@
             background: rgba(0,0,0,0.8); color: white; padding: 20px;
             border-radius: 15px; display: none; border: 2px solid #00ffff;
         }
-        .setup-group { display: flex; flex-direction: column; align-items: center; margin-bottom: 20px; }
         label { color: #ffd700; font-weight: bold; font-size: 18px; }
     </style>
 </head>
@@ -52,17 +55,18 @@
 
     <div id="setup-screen">
         <h1 style="color: #ffd700;">ARCADE PARK CHALLENGE</h1>
-        
-        <div class="setup-group" id="initial-setup">
-            <label>NÚMERO DE JOGADORES (MAX 10):</label>
-            <input type="number" id="total-players" value="1" min="1" max="10">
-            <label id="player-label">NOME DO JOGADOR 1:</label>
-            <input type="text" id="player-name" placeholder="Digite o nome..." maxlength="15">
-            <button onclick="startGame()">INICIAR PARTIDA</button>
-        </div>
+        <label id="round-label">NÚMERO DE JOGADORES (MAX 10):</label>
+        <input type="number" id="total-players" value="1" min="1" max="10">
+        <label id="player-label">NOME DO JOGADOR:</label>
+        <input type="text" id="player-name" placeholder="Nome do jogador..." maxlength="15">
+        <button onclick="startGame()">INICIAR JOGO</button>
+        <button onclick="resetRanking()" style="background: #ff4444; color: white; margin-top: 50px; font-size: 12px;">LIMPAR TODO O PLACAR</button>
+    </div>
 
-        <div id="turn-info" style="color: white; margin-top: 20px; font-size: 20px; display: none;"></div>
-        <button onclick="resetRanking()" style="background: #ff4444; color: white; margin-top: 50px; font-size: 14px;">LIMPAR PLACAR</button>
+    <div id="end-screen">
+        <h1 style="color: #ffd700;">RODADA FINALIZADA!</h1>
+        <p id="final-stats" style="font-size: 24px;"></p>
+        <button id="next-player-btn" onclick="prepareNextTurn()">PRÓXIMO JOGADOR</button>
     </div>
 
     <div id="leaderboard">
@@ -76,7 +80,7 @@
             <div id="coin-display" class="stats">MOEDAS: <span id="coin-val">0</span></div>
             <div class="stats" style="color: #00ffcc; border-color: #00ffcc;">RESTAM: <span id="prizes-val">10</span></div>
             <div class="stats" style="color: #ff4444; border-color: #ff4444;">TEMPO: <span id="timer-val">0.0</span>s</div>
-            <button onclick="location.reload()" style="background: #555; color: white;">REINICIAR JOGO</button>
+            <button onclick="location.reload()" style="background: #555; color: white; pointer-events: auto;">REINICIAR PARTIDA</button>
         </div>
         <div id="prompt">Pressione [E] para interagir</div>
     </div>
@@ -150,40 +154,32 @@
     }
 
     const platforms = []; const obstacles = [];
-    const platMat = new THREE.MeshStandardMaterial({color: 0x888888});
-    const obsMat = new THREE.MeshStandardMaterial({color: 0xff0000});
     for(let i=0; i<15; i++) {
         const angle = i * 0.4; const radius = 10 + (i * 0.5);
         const px = Math.cos(angle) * radius + 15; const pz = Math.sin(angle) * radius - 15; const py = 1 + (i * 0.9);
-        let pGeo = (i % 5 === 0) ? new THREE.BoxGeometry(2, 0.4, 6) : (i % 7 === 0) ? new THREE.CylinderGeometry(2, 2, 0.4, 6) : new THREE.BoxGeometry(3, 0.4, 3);
-        const p = new THREE.Mesh(pGeo, platMat); p.position.set(px, py, pz); scene.add(p); platforms.push(p);
-        if(i > 2) {
-            if(i % 3 === 0) {
-                const obs = new THREE.Mesh(new THREE.BoxGeometry(1, 3.5, 1), obsMat); obs.position.set(px, py + 1.8, pz); scene.add(obs); obstacles.push(obs);
-            } else if (i % 4 === 0) {
-                const obs = new THREE.Mesh(new THREE.BoxGeometry(4, 1.2, 0.4), obsMat); obs.position.set(px, py + 0.8, pz); obs.rotation.y = angle; scene.add(obs); obstacles.push(obs);
-            }
+        const p = new THREE.Mesh(new THREE.BoxGeometry(3, 0.4, 3), new THREE.MeshStandardMaterial({color: 0x888888}));
+        p.position.set(px, py, pz); scene.add(p); platforms.push(p);
+        if(i > 2 && i % 3 === 0) {
+            const obs = new THREE.Mesh(new THREE.BoxGeometry(1, 3.5, 1), new THREE.MeshStandardMaterial({color: 0xff0000}));
+            obs.position.set(px, py + 1.8, pz); scene.add(obs); obstacles.push(obs);
         }
     }
 
-    const lastPlat = platforms[platforms.length - 1];
     const chestGroup = new THREE.Group();
-    const chestBase = new THREE.Mesh(new THREE.BoxGeometry(1, 0.6, 0.7), new THREE.MeshStandardMaterial({color: 0x5D4037}));
-    const chestLid = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.2, 0.75), new THREE.MeshStandardMaterial({color: 0x3E2723})); chestLid.position.y = 0.35;
-    const potion = new THREE.Group();
-    potion.add(new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.15, 0.4), new THREE.MeshStandardMaterial({color: 0x00ff00, transparent: true, opacity: 0.7})));
-    potion.position.set(0.4, 0.5, 0); chestGroup.add(chestBase, chestLid, potion);
-    chestGroup.position.set(lastPlat.position.x, lastPlat.position.y + 0.5, lastPlat.position.z);
+    chestGroup.add(new THREE.Mesh(new THREE.BoxGeometry(1, 0.6, 0.7), new THREE.MeshStandardMaterial({color: 0x5D4037})));
+    const potion = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.15, 0.4), new THREE.MeshStandardMaterial({color: 0x00ff00, transparent: true, opacity: 0.7}));
+    potion.position.set(0, 0.5, 0); chestGroup.add(potion);
+    chestGroup.position.set(platforms[14].position.x, platforms[14].position.y + 0.5, platforms[14].position.z);
     scene.add(chestGroup);
 
     const handGroup = new THREE.Group();
-    const heldCoin = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.015), new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.9 }));
+    const heldCoin = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.015), new THREE.MeshStandardMaterial({ color: 0xffd700 }));
     heldCoin.position.set(0, 0.08, 0); heldCoin.visible = false;
     handGroup.add(new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.08, 0.35), new THREE.MeshStandardMaterial({color: 0xffdbac})), heldCoin);
     handGroup.position.set(0.6, -0.6, -1); camera.add(handGroup); scene.add(camera);
 
     const machine = new THREE.Group();
-    machine.add(new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.2, 3.2), new THREE.MeshStandardMaterial({color: 0xcc0000, metalness: 0.5})));
+    machine.add(new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.2, 3.2), new THREE.MeshStandardMaterial({color: 0xcc0000})));
     machine.position.set(0, 0.6, -10); scene.add(machine);
     const prizesInside = [];
     for(let i=0; i<10; i++) {
@@ -201,11 +197,10 @@
 
     let playerName = "", totalPlayers = 1, currentPlayerIndex = 1;
     let coinsCount = 0, prizesLeft = 10, gameState = "SETUP", isClawDescending = false, caughtPrize = null;
-    let startTime = 0, gameActive = false, velocityY = 0, isGrounded = true, isLucky = false, luckTimeout = null;
+    let startTime = 0, gameActive = false, velocityY = 0, isGrounded = true, isLucky = false;
     let moveF = false, moveB = false, moveL = false, moveR = false, yaw = 0, pitch = 0, clawOpen = 1;
-    const jumpForce = 0.18, gravity = 0.007;
 
-    window.resetRanking = () => { localStorage.removeItem('arcadeScores'); updateLeaderboard(); };
+    window.resetRanking = () => { localStorage.removeItem('arcadeScores'); updateLeaderboard(); alert("Placar zerado!"); };
 
     window.startGame = () => {
         const nameInput = document.getElementById('player-name');
@@ -216,13 +211,22 @@
         totalPlayers = Math.min(10, parseInt(countInput.value) || 1);
         
         document.getElementById('setup-screen').style.display = 'none';
-        resetLevel();
+        document.getElementById('total-players').style.display = 'none';
+        document.getElementById('round-label').style.display = 'none';
+        resetGameWorld();
         gameState = "WALK";
         updateLeaderboard();
     };
 
-    function resetLevel() {
-        camera.position.set(0, 1.7, -6); yaw = 0; pitch = 0;
+    window.prepareNextTurn = () => {
+        document.getElementById('end-screen').style.display = 'none';
+        document.getElementById('setup-screen').style.display = 'flex';
+        document.getElementById('player-label').innerText = `NOME DO JOGADOR ${currentPlayerIndex}:`;
+        document.getElementById('player-name').value = "";
+    };
+
+    function resetGameWorld() {
+        camera.position.set(0, 1.7, -6); yaw = 0; pitch = 0; camera.rotation.set(0,0,0);
         coinsCount = 0; prizesLeft = 10; gameActive = false; startTime = 0;
         document.getElementById('coin-val').innerText = "0";
         document.getElementById('prizes-val').innerText = "10";
@@ -230,18 +234,12 @@
         coins.forEach(c => c.visible = true);
         prizesInside.forEach(p => { p.visible = true; p.position.y = 1.3; });
         chestGroup.visible = true; isLucky = false;
-        document.getElementById('coin-display').style.borderColor = '#ffd700';
         document.getElementById('coin-display').style.color = '#ffd700';
     }
 
     function updateLeaderboard() {
         const scores = JSON.parse(localStorage.getItem('arcadeScores') || "[]");
         document.getElementById('score-list').innerHTML = scores.sort((a,b) => a.time - b.time).slice(0,5).map(s => `<div>${s.name}: ${s.time}s</div>`).join('');
-    }
-
-    function collectCoinAnim() {
-        heldCoin.visible = true; let t = 0;
-        const anim = setInterval(() => { t += 0.1; handGroup.position.y = -0.6 + Math.sin(t * Math.PI) * 0.4; if(t >= 1) { clearInterval(anim); heldCoin.visible = false; handGroup.position.y = -0.6; } }, 30);
     }
 
     document.addEventListener('mousedown', () => { if(gameState === "WALK") document.body.requestPointerLock(); });
@@ -257,14 +255,13 @@
         if(gameState === "WALK") {
             if(e.code === 'KeyW') moveF = true; if(e.code === 'KeyS') moveB = true; 
             if(e.code === 'KeyA') moveL = true; if(e.code === 'KeyD') moveR = true;
-            if(e.code === 'Space' && isGrounded) { velocityY = jumpForce; isGrounded = false; }
+            if(e.code === 'Space' && isGrounded) { velocityY = 0.18; isGrounded = false; }
             if(e.code === 'KeyE') {
-                coins.forEach(c => { if(c.visible && camera.position.distanceTo(c.position) < 3) { c.visible = false; coinsCount++; document.getElementById('coin-val').innerText = coinsCount; collectCoinAnim(); }});
+                coins.forEach(c => { if(c.visible && camera.position.distanceTo(c.position) < 3) { c.visible = false; coinsCount++; document.getElementById('coin-val').innerText = coinsCount; }});
                 if(chestGroup.visible && camera.position.distanceTo(chestGroup.position) < 3) {
                     chestGroup.visible = false; coinsCount += 10; document.getElementById('coin-val').innerText = coinsCount;
                     isLucky = true; document.getElementById('coin-display').style.color = '#00ff00';
                     setTimeout(() => { isLucky = false; document.getElementById('coin-display').style.color = '#ffd700'; }, 30000);
-                    collectCoinAnim();
                 }
                 if(camera.position.distanceTo(new THREE.Vector3(0,0,-10)) < 4 && coinsCount > 0) {
                     gameState = "CLAW"; document.exitPointerLock(); document.getElementById('game-info').style.display = 'block';
@@ -307,18 +304,18 @@
         scores.push({name: playerName, time: parseFloat(finalTime)});
         localStorage.setItem('arcadeScores', JSON.stringify(scores));
         updateLeaderboard();
+        document.exitPointerLock();
 
+        document.getElementById('final-stats').innerText = `${playerName} terminou em ${finalTime}s!`;
+        document.getElementById('end-screen').style.display = 'flex';
+        document.getElementById('game-info').style.display = 'none';
+        
         if(currentPlayerIndex < totalPlayers) {
             currentPlayerIndex++;
-            gameState = "SETUP";
-            document.getElementById('setup-screen').style.display = 'flex';
-            document.getElementById('initial-setup').style.display = 'flex';
-            document.getElementById('player-label').innerText = `NOME DO JOGADOR ${currentPlayerIndex}:`;
-            document.getElementById('player-name').value = "";
-            document.getElementById('total-players').parentElement.style.display = 'none'; // Esconde o seletor de rodadas após começar
+            document.getElementById('next-player-btn').innerText = "PRÓXIMO JOGADOR";
         } else {
-            alert("Fim das rodadas! Verifique o Ranking para ver o vencedor.");
-            location.reload();
+            document.getElementById('next-player-btn').innerText = "VER RESULTADO FINAL";
+            document.getElementById('next-player-btn').onclick = () => location.reload();
         }
     }
 
@@ -327,7 +324,7 @@
         birds.forEach(b => { b.mesh.position.z += b.speed; if(b.mesh.position.z > 150) b.mesh.position.z = -150; });
         if(gameActive) document.getElementById('timer-val').innerText = ((Date.now() - startTime) / 1000).toFixed(1);
         if(gameState === "WALK") {
-            velocityY -= gravity; camera.position.y += velocityY;
+            velocityY -= 0.007; camera.position.y += velocityY;
             if(camera.position.y <= 1.7) { camera.position.y = 1.7; velocityY = 0; isGrounded = true; }
             platforms.forEach(p => {
                 const dx = Math.abs(camera.position.x - p.position.x), dz = Math.abs(camera.position.z - p.position.z);
