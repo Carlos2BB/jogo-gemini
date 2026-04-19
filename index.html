@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Arcade Park - Nature Update</title>
+    <title>Arcade Park - Pro Edition</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #000; }
         #crosshair {
@@ -16,60 +16,61 @@
             pointer-events: none; display: flex; flex-direction: column;
             justify-content: space-between; align-items: center;
             padding: 30px; box-sizing: border-box; color: white;
-            text-shadow: 2px 2px 8px rgba(0,0,0,0.9);
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
         }
         .stats-container { display: flex; gap: 20px; pointer-events: auto; }
         .stats {
-            background: rgba(0,0,0,0.85); color: #ffd700;
-            padding: 10px 25px; border-radius: 30px;
+            background: rgba(0,0,0,0.7); color: #ffd700;
+            padding: 10px 20px; border-radius: 30px;
             font-size: 18px; border: 2px solid #ffd700;
-            box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
         }
         #prompt {
             color: white; font-size: 24px; font-weight: bold;
-            background: rgba(0,0,0,0.8); padding: 15px 25px; border-radius: 15px;
+            background: rgba(0,0,0,0.6); padding: 15px 25px; border-radius: 15px;
             display: none; border-bottom: 4px solid #ffd700;
         }
-        #setup-screen, #end-screen {
-            position: absolute; width: 100%; height: 100%; background: radial-gradient(circle, #222 0%, #000 100%);
+        #setup-screen {
+            position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.9);
             display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100;
         }
-        #end-screen { display: none; z-index: 101; color: white; }
-        input { padding: 12px; font-size: 20px; border-radius: 8px; border: 2px solid #ffd700; margin: 10px; width: 280px; background: #111; color: white; }
-        button { padding: 12px 30px; font-size: 20px; cursor: pointer; background: #ffd700; border: none; border-radius: 8px; font-weight: bold; transition: 0.3s; }
-        button:hover { background: #fff; transform: scale(1.05); }
+        #end-screen {
+            position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.9);
+            display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 101; color: white;
+        }
+        input { padding: 10px; font-size: 20px; border-radius: 5px; border: none; margin: 10px; width: 250px; }
+        button { padding: 10px 20px; font-size: 20px; cursor: pointer; background: #ffd700; border: none; border-radius: 5px; font-weight: bold; margin: 5px; }
         #leaderboard {
-            position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.85);
-            padding: 15px; border-radius: 12px; border: 1px solid #ffd700; color: #fff; font-size: 14px;
+            position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.8);
+            padding: 15px; border-radius: 10px; border: 1px solid #ffd700; color: #fff; font-size: 14px;
         }
         #game-info {
             position: absolute; top: 100px; right: 20px;
-            background: rgba(0,0,0,0.9); color: white; padding: 20px;
+            background: rgba(0,0,0,0.8); color: white; padding: 20px;
             border-radius: 15px; display: none; border: 2px solid #00ffff;
         }
+        label { color: #ffd700; font-weight: bold; font-size: 18px; }
     </style>
 </head>
 <body>
 
     <div id="setup-screen">
-        <h1 style="color: #ffd700; font-size: 48px; letter-spacing: 2px;">ARCADE PARK</h1>
-        <label style="color: #ffd700; font-weight: bold;">NÚMERO DE JOGADORES:</label>
+        <h1 style="color: #ffd700;">ARCADE PARK CHALLENGE</h1>
+        <label id="round-label">NÚMERO DE JOGADORES (MAX 10):</label>
         <input type="number" id="total-players" value="1" min="1" max="10">
-        <label style="color: #ffd700; font-weight: bold;">NOME DO JOGADOR:</label>
-        <input type="text" id="player-name" placeholder="Digite seu nome..." maxlength="15">
-        <button onclick="startGame()">INICIAR DESAFIO</button>
-        <button onclick="resetRanking()" style="background: #ff4444; color: white; margin-top: 50px; font-size: 12px;">LIMPAR RANKING</button>
+        <label id="player-label">NOME DO JOGADOR:</label>
+        <input type="text" id="player-name" placeholder="Nome do jogador..." maxlength="15">
+        <button onclick="startGame()">INICIAR JOGO</button>
+        <button onclick="resetRanking()" style="background: #ff4444; color: white; margin-top: 50px; font-size: 12px;">LIMPAR TODO O PLACAR</button>
     </div>
 
     <div id="end-screen">
-        <h1 style="color: #ffd700;" id="end-title">RODADA FINALIZADA!</h1>
+        <h1 style="color: #ffd700;">RODADA FINALIZADA!</h1>
         <p id="final-stats" style="font-size: 24px;"></p>
-        <p id="winner-announcement" style="font-size: 32px; color: #00ff00; font-weight: bold; display: none;"></p>
         <button id="next-player-btn" onclick="prepareNextTurn()">PRÓXIMO JOGADOR</button>
     </div>
 
     <div id="leaderboard">
-        <strong style="color: #ffd700;">TOP PLAYERS:</strong>
+        <strong style="color: #ffd700;">RANKING:</strong>
         <div id="score-list"></div>
     </div>
 
@@ -77,19 +78,19 @@
     <div id="ui-layer">
         <div class="stats-container">
             <div id="coin-display" class="stats">MOEDAS: <span id="coin-val">0</span></div>
-            <div class="stats" style="color: #00ffcc; border-color: #00ffcc;">ITENS: <span id="prizes-val">10</span></div>
+            <div class="stats" style="color: #00ffcc; border-color: #00ffcc;">RESTAM: <span id="prizes-val">10</span></div>
             <div class="stats" style="color: #ff4444; border-color: #ff4444;">TEMPO: <span id="timer-val">0.0</span>s</div>
-            <button onclick="location.reload()" style="background: #333; color: white; pointer-events: auto; border: 1px solid #666;">SAIR</button>
+            <button onclick="location.reload()" style="background: #555; color: white; pointer-events: auto;">REINICIAR PARTIDA</button>
         </div>
         <div id="prompt">Pressione [E] para interagir</div>
     </div>
 
     <div id="game-info">
-        <h2 style="color:#00ffff; margin-top:0">CONTROLES GARRA</h2>
+        <h2 style="color:#00ffff; margin-top:0">MODO GARRA</h2>
         <ul style="list-style:none; padding:0">
-            <li>SETAS: Mover Garra</li>
-            <li>ESPAÇO: Descer</li>
-            <li>ESC: Sair da Máquina</li>
+            <li>Setas: Mover</li>
+            <li>Espaço: Pescar</li>
+            <li>ESC: Sair</li>
         </ul>
     </div>
 
@@ -101,160 +102,160 @@
     import * as THREE from 'three';
 
     const scene = new THREE.Scene();
-    scene.fog = new THREE.Fog(0xaaccff, 1, 250); 
     
-    // CÉU REALISTA
-    const skyGeo = new THREE.SphereGeometry(450, 32, 15);
+    // RENDERER COM SOMBRAS ATIVADAS
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true; // ATIVA SOMBRAS NO JOGO
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.body.appendChild(renderer.domElement);
+
+    // CÉU
+    const skyGeo = new THREE.SphereGeometry(400, 32, 15);
     const skyMat = new THREE.ShaderMaterial({ 
         vertexShader: `varying vec3 vWorldPosition; void main() { vec4 worldPosition = modelMatrix * vec4( position, 1.0 ); vWorldPosition = worldPosition.xyz; gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 ); }`, 
-        fragmentShader: `uniform vec3 topColor; uniform vec3 bottomColor; varying vec3 vWorldPosition; void main() { float h = normalize( vWorldPosition ).y; gl_FragColor = vec4( mix( bottomColor, topColor, max( h + 0.2, 0.0 ) ), 1.0 ); }`,
-        uniforms: { topColor: { value: new THREE.Color(0x0055ff) }, bottomColor: { value: new THREE.Color(0xaaccff) } },
+        fragmentShader: `uniform vec3 topColor; uniform vec3 bottomColor; varying vec3 vWorldPosition; void main() { float h = normalize( vWorldPosition ).y; gl_FragColor = vec4( mix( bottomColor, topColor, max( h, 0.0 ) ), 1.0 ); }`,
+        uniforms: { topColor: { value: new THREE.Color(0x0077ff) }, bottomColor: { value: new THREE.Color(0xffffff) } },
         side: THREE.BackSide 
     });
     scene.add(new THREE.Mesh(skyGeo, skyMat));
 
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
-    renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
-    renderer.toneMapping = THREE.ACESFilmicToneMapping; 
-    document.body.appendChild(renderer.domElement);
+    camera.rotation.order = 'YXZ'; // CONCERTO DA CAMERA (ORDEM DE ROTAÇÃO)
 
-    // ILUMINAÇÃO
-    const sun = new THREE.DirectionalLight(0xffffff, 2.5);
-    sun.position.set(100, 150, 100);
+    // LUZ COM SOMBRA CONFIGURADA
+    const sun = new THREE.DirectionalLight(0xffffff, 2.0);
+    sun.position.set(50, 100, 50);
     sun.castShadow = true;
-    sun.shadow.mapSize.width = 2048; 
+    sun.shadow.mapSize.width = 2048; // Qualidade da sombra
     sun.shadow.mapSize.height = 2048;
-    sun.shadow.camera.left = -100; sun.shadow.camera.right = 100;
-    sun.shadow.camera.top = 100; sun.shadow.camera.bottom = -100;
-    scene.add(sun);
+    sun.shadow.camera.left = -100;
+    sun.shadow.camera.right = 100;
+    sun.shadow.camera.top = 100;
+    sun.shadow.camera.bottom = -100;
+    scene.add(sun, new THREE.AmbientLight(0xffffff, 0.6));
 
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8);
-    scene.add(hemiLight);
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000), new THREE.MeshStandardMaterial({ color: 0x348C31 }));
+    ground.rotation.x = -Math.PI / 2; 
+    ground.receiveShadow = true; // CHÃO RECEBE SOMBRA
+    scene.add(ground);
 
-    // CHÃO
-    const ground = new THREE.Mesh(
-        new THREE.PlaneGeometry(1000, 1000), 
-        new THREE.MeshStandardMaterial({ color: 0x2d5a27, roughness: 0.8, metalness: 0.1 })
-    );
-    ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
-
-    // ÁRVORES
-    const trunkMat = new THREE.MeshStandardMaterial({color:0x3d2b1f, roughness: 0.9});
-    const foliageMat = new THREE.MeshStandardMaterial({color:0x1b4d1c, roughness: 0.7});
-
-    for(let i=0; i<65; i++) {
-        const x = Math.random() * 200 - 100, z = Math.random() * 200 - 100;
-        if (Math.abs(x) > 15 || Math.abs(z) > 20) {
+    // ÁRVORES COM SOMBRA
+    for(let i=0; i<50; i++) {
+        const x = Math.random() * 160 - 80, z = Math.random() * 160 - 80;
+        if (Math.abs(x) > 10 || Math.abs(z) > 15) {
             const tree = new THREE.Group();
-            const treeType = Math.random();
-            let trunkH, trunkR, foliageGeo;
-            if (treeType < 0.4) { trunkH = 6 + Math.random() * 3; trunkR = 0.3; foliageGeo = new THREE.ConeGeometry(2, trunkH * 0.8, 8); }
-            else if (treeType < 0.7) { trunkH = 3 + Math.random() * 2; trunkR = 0.5; foliageGeo = new THREE.DodecahedronGeometry(3, 1); }
-            else { trunkH = 4.5 + Math.random() * 2.5; trunkR = 0.4; foliageGeo = new THREE.SphereGeometry(2.5, 12, 12); foliageGeo.scale(1, 1.4, 1); }
-            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(trunkR*0.7, trunkR, trunkH), trunkMat);
-            trunk.position.y = trunkH / 2; tree.add(trunk);
-            const foliage = new THREE.Mesh(foliageGeo, foliageMat);
-            foliage.position.y = trunkH + (foliageGeo.type === 'SphereGeometry' ? 0 : 1);
-            tree.add(foliage); tree.position.set(x, 0, z); scene.add(tree);
+            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, 4), new THREE.MeshStandardMaterial({color:0x5D4037}));
+            trunk.position.y = 2; 
+            trunk.castShadow = true; trunk.receiveShadow = true;
+            tree.add(trunk);
+            const foliage = new THREE.Mesh(new THREE.DodecahedronGeometry(2), new THREE.MeshStandardMaterial({color:0x2E7D32}));
+            foliage.position.y = 4.5; 
+            foliage.castShadow = true;
+            tree.add(foliage);
+            tree.position.set(x, 0, z); scene.add(tree);
         }
     }
 
-    // MOEDAS E PÁSSAROS
     const coins = [];
-    for(let i=0; i<35; i++) {
-        const c = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.02, 32), new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 1.0, roughness: 0.2 }));
-        c.position.set(Math.random()*90-45, 0.15, Math.random()*90-45);
-        c.rotation.x = Math.PI/2; c.castShadow = true; scene.add(c); coins.push(c);
+    for(let i=0; i<30; i++) {
+        const c = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.015), new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.9 }));
+        c.position.set(Math.random()*80-40, 0.1, Math.random()*80-40);
+        c.rotation.x = Math.PI/2; 
+        c.castShadow = true; // MOEDAS PROJETAM SOMBRA
+        scene.add(c); coins.push(c);
     }
 
+    // (Pássaros, plataformas e garra mantidos...)
     const birds = [];
-    for(let i=0; i<10; i++) {
-        const bird = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.6, 4), new THREE.MeshStandardMaterial({color: 0x111111}));
-        bird.position.set(Math.random()*200-100, 20 + Math.random()*10, Math.random()*200-100);
-        bird.rotation.x = Math.PI/2; scene.add(bird); birds.push({mesh: bird, speed: 0.15 + Math.random()*0.3});
+    for(let i=0; i<8; i++) {
+        const bird = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.5, 3), new THREE.MeshStandardMaterial({color: 0x000000}));
+        bird.position.set(Math.random()*200-100, 15 + Math.random()*10, Math.random()*200-100);
+        bird.rotation.x = Math.PI/2; scene.add(bird); birds.push({mesh: bird, speed: 0.1 + Math.random()*0.2});
     }
 
-    // ANIMAIS
-    const animals = [];
-    const createAnimalMat = (color) => new THREE.MeshStandardMaterial({color: color, roughness: 0.8});
-    for(let i=0; i<3; i++) {
-        const rabbit = new THREE.Group();
-        const body = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 10), createAnimalMat(0xeeeeee));
-        body.position.y = 0.22; rabbit.add(body);
-        let rx, rz; do { rx = Math.random() * 160 - 80; rz = Math.random() * 160 - 80; } while (Math.abs(rx) < 20 && Math.abs(rz) < 25);
-        rabbit.position.set(rx, 0, rz); scene.add(rabbit);
-        animals.push({ mesh: rabbit, type: 'rabbit', baseSpeed: 0.04 + Math.random()*0.02, currentSpeed: 0, angle: Math.random() * Math.PI * 2, state: 'idle', stateTimer: 0 });
-    }
-    for(let i=0; i<2; i++) {
-        const fox = new THREE.Group();
-        const body = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.32, 0.32), createAnimalMat(0xc0392b));
-        body.position.y = 0.28; fox.add(body);
-        let fx, fz; do { fx = Math.random() * 180 - 90; fz = Math.random() * 180 - 90; } while (Math.abs(fx) < 25 && Math.abs(fz) < 30);
-        fox.position.set(fx, 0, fz); scene.add(fox);
-        animals.push({ mesh: fox, type: 'fox', baseSpeed: 0.02 + Math.random()*0.015, currentSpeed: 0, angle: Math.random() * Math.PI * 2, state: 'idle', stateTimer: 0 });
-    }
-
-    // PLATAFORMAS E MÁQUINA
     const platforms = []; const obstacles = [];
     for(let i=0; i<15; i++) {
-        const angle = i * 0.45; const radius = 12 + (i * 0.6);
-        const px = Math.cos(angle) * radius + 15; const pz = Math.sin(angle) * radius - 15; const py = 1 + (i * 1.0);
-        const p = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.5, 3.5), new THREE.MeshStandardMaterial({color: 0x555555}));
-        p.position.set(px, py, pz); p.castShadow = true; p.receiveShadow = true; scene.add(p); platforms.push(p);
+        const angle = i * 0.4; const radius = 10 + (i * 0.5);
+        const px = Math.cos(angle) * radius + 15; const pz = Math.sin(angle) * radius - 15; const py = 1 + (i * 0.9);
+        const p = new THREE.Mesh(new THREE.BoxGeometry(3, 0.4, 3), new THREE.MeshStandardMaterial({color: 0x888888}));
+        p.position.set(px, py, pz); p.receiveShadow = true; p.castShadow = true; scene.add(p); platforms.push(p);
         if(i > 2 && i % 3 === 0) {
-            const obs = new THREE.Mesh(new THREE.BoxGeometry(1.2, 4, 1.2), new THREE.MeshStandardMaterial({color: 0xaa0000}));
-            obs.position.set(px, py + 2.2, pz); scene.add(obs); obstacles.push(obs);
+            const obs = new THREE.Mesh(new THREE.BoxGeometry(1, 3.5, 1), new THREE.MeshStandardMaterial({color: 0xff0000}));
+            obs.position.set(px, py + 1.8, pz); obs.castShadow = true; scene.add(obs); obstacles.push(obs);
         }
     }
 
     const chestGroup = new THREE.Group();
-    const chestBase = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.8, 0.8), new THREE.MeshStandardMaterial({color: 0x4a3728}));
-    const potion = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, 0.5, 16), new THREE.MeshStandardMaterial({color: 0x00ff88, emissive: 0x00ff88, emissiveIntensity: 0.5}));
-    potion.position.y = 0.6; chestGroup.add(chestBase, potion);
-    chestGroup.position.set(platforms[14].position.x, platforms[14].position.y + 0.6, platforms[14].position.z); scene.add(chestGroup);
+    const chestBox = new THREE.Mesh(new THREE.BoxGeometry(1, 0.6, 0.7), new THREE.MeshStandardMaterial({color: 0x5D4037}));
+    chestBox.castShadow = true; chestGroup.add(chestBox);
+    const potion = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.15, 0.4), new THREE.MeshStandardMaterial({color: 0x00ff00, transparent: true, opacity: 0.7}));
+    potion.position.set(0, 0.5, 0); chestGroup.add(potion);
+    chestGroup.position.set(platforms[14].position.x, platforms[14].position.y + 0.5, platforms[14].position.z);
+    scene.add(chestGroup);
+
+    const handGroup = new THREE.Group();
+    const handMesh = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.08, 0.35), new THREE.MeshStandardMaterial({color: 0xffdbac}));
+    handMesh.castShadow = true;
+    const heldCoin = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.015), new THREE.MeshStandardMaterial({ color: 0xffd700 }));
+    heldCoin.position.set(0, 0.08, 0); heldCoin.visible = false;
+    handGroup.add(handMesh, heldCoin);
+    handGroup.position.set(0.6, -0.6, -1); camera.add(handGroup); scene.add(camera);
 
     const machine = new THREE.Group();
-    const machineBase = new THREE.Mesh(new THREE.BoxGeometry(3.5, 1.2, 3.5), new THREE.MeshStandardMaterial({color: 0x880000}));
-    machineBase.position.y = 0.6; machine.add(machineBase);
-    machine.position.set(0, 0, -12); scene.add(machine);
-    
+    const mBase = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.2, 3.2), new THREE.MeshStandardMaterial({color: 0xcc0000}));
+    mBase.castShadow = true; mBase.receiveShadow = true;
+    machine.add(mBase); machine.position.set(0, 0.6, -10); scene.add(machine);
     const prizesInside = [];
     for(let i=0; i<10; i++) {
-        const p = new THREE.Mesh(new THREE.SphereGeometry(0.25, 32, 32), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff }));
-        p.position.set((Math.random()-0.5)*2.8, 1.55, (Math.random()-0.5)*2.8); machine.add(p); prizesInside.push(p);
+        const p = new THREE.Mesh(new THREE.SphereGeometry(0.22), new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff }));
+        p.position.set((Math.random()-0.5)*2.4, 1.3, (Math.random()-0.5)*2.4); 
+        p.castShadow = true; machine.add(p); prizesInside.push(p);
     }
-
     const clawSystem = new THREE.Group();
-    const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 3), new THREE.MeshStandardMaterial({color:0x222222}));
-    cable.position.y = 1.5; const clawHead = new THREE.Group(); const pinchers = [];
+    const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 3), new THREE.MeshStandardMaterial({color:0x333333})); cable.position.y = 1.5;
+    const clawHead = new THREE.Group(); const pinchers = [];
     for(let i=0; i<3; i++) {
-        const pPivot = new THREE.Group(); const pMesh = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.7, 0.06), new THREE.MeshStandardMaterial({color:0xaaaaaa}));
-        pMesh.position.set(0, -0.35, 0.2); pPivot.add(pMesh); pPivot.rotation.y = (Math.PI*2/3)*i; clawHead.add(pPivot); pinchers.push(pPivot);
+        const pPivot = new THREE.Group(); const pMesh = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.6, 0.05), new THREE.MeshStandardMaterial({color:0xcccccc}));
+        pMesh.position.set(0, -0.3, 0.15); pMesh.castShadow = true; pPivot.add(pMesh); pPivot.rotation.y = (Math.PI*2/3)*i; clawHead.add(pPivot); pinchers.push(pPivot);
     }
-    clawSystem.add(cable, clawHead); clawSystem.position.set(0, 4.0, 0); machine.add(clawSystem);
+    clawSystem.add(cable, clawHead); clawSystem.position.set(0, 4.5, 0); machine.add(clawSystem);
 
-    // LÓGICA
     let playerName = "", totalPlayers = 1, currentPlayerIndex = 1;
     let coinsCount = 0, prizesLeft = 10, gameState = "SETUP", isClawDescending = false, caughtPrize = null;
     let startTime = 0, gameActive = false, velocityY = 0, isGrounded = true, isLucky = false;
     let moveF = false, moveB = false, moveL = false, moveR = false, yaw = 0, pitch = 0, clawOpen = 1;
-    let sessionScores = [];
 
-    window.resetRanking = () => { localStorage.removeItem('arcadeScores'); updateLeaderboard(); alert("Ranking Resetado!"); };
+    window.resetRanking = () => { localStorage.removeItem('arcadeScores'); updateLeaderboard(); alert("Placar zerado!"); };
+
     window.startGame = () => {
         const nameInput = document.getElementById('player-name');
+        const countInput = document.getElementById('total-players');
         if(nameInput.value.trim() === "") return;
-        playerName = nameInput.value; totalPlayers = Math.min(10, parseInt(document.getElementById('total-players').value) || 1);
-        document.getElementById('setup-screen').style.display = 'none'; resetGameWorld(); gameState = "WALK"; updateLeaderboard();
+        playerName = nameInput.value;
+        totalPlayers = Math.min(10, parseInt(countInput.value) || 1);
+        document.getElementById('setup-screen').style.display = 'none';
+        resetGameWorld();
+        gameState = "WALK";
+        updateLeaderboard();
+    };
+
+    window.prepareNextTurn = () => {
+        document.getElementById('end-screen').style.display = 'none';
+        document.getElementById('setup-screen').style.display = 'flex';
+        document.getElementById('player-label').innerText = `NOME DO JOGADOR ${currentPlayerIndex}:`;
+        document.getElementById('player-name').value = "";
     };
 
     function resetGameWorld() {
-        camera.position.set(0, 1.7, -6); yaw = 0; pitch = 0; coinsCount = 0; prizesLeft = 10; gameActive = false;
-        document.getElementById('coin-val').innerText = "0"; document.getElementById('prizes-val').innerText = "10";
+        camera.position.set(0, 1.7, -6); yaw = 0; pitch = 0; camera.rotation.set(0,0,0);
+        coinsCount = 0; prizesLeft = 10; gameActive = false; startTime = 0;
+        document.getElementById('coin-val').innerText = "0";
+        document.getElementById('prizes-val').innerText = "10";
+        document.getElementById('timer-val').innerText = "0.0";
+        coins.forEach(c => c.visible = true);
+        prizesInside.forEach(p => { p.visible = true; p.position.y = 1.3; });
+        chestGroup.visible = true; isLucky = false;
     }
 
     function updateLeaderboard() {
@@ -263,11 +264,17 @@
     }
 
     document.addEventListener('mousedown', () => { if(gameState === "WALK") document.body.requestPointerLock(); });
+
+    // CONCERTO DA CAMERA NO MOUSEMOVE
     document.addEventListener('mousemove', (e) => {
         if (document.pointerLockElement && gameState === "WALK") {
             if(!gameActive) { startTime = Date.now(); gameActive = true; }
-            yaw -= e.movementX * 0.002; pitch -= e.movementY * 0.002;
-            pitch = Math.max(-1.5, Math.min(1.5, pitch)); camera.rotation.set(pitch, yaw, 0, 'YXZ');
+            
+            yaw -= e.movementX * 0.002;
+            pitch -= e.movementY * 0.002;
+            pitch = Math.max(-1.5, Math.min(1.5, pitch));
+            
+            camera.rotation.set(pitch, yaw, 0, 'YXZ');
         }
     });
 
@@ -275,28 +282,24 @@
         if(gameState === "WALK") {
             if(e.code === 'KeyW') moveF = true; if(e.code === 'KeyS') moveB = true; 
             if(e.code === 'KeyA') moveL = true; if(e.code === 'KeyD') moveR = true;
-            if(e.code === 'Space' && isGrounded) { velocityY = 0.2; isGrounded = false; }
+            if(e.code === 'Space' && isGrounded) { velocityY = 0.18; isGrounded = false; }
             if(e.code === 'KeyE') {
-                coins.forEach(c => { if(c.visible && camera.position.distanceTo(c.position) < 3.5) { c.visible = false; coinsCount++; document.getElementById('coin-val').innerText = coinsCount; }});
-                
-                // Interação com o Baú no final do parkour
-                if(chestGroup.visible && camera.position.distanceTo(chestGroup.position) < 3.5) {
-                    chestGroup.visible = false; coinsCount += 10; isLucky = true;
-                    document.getElementById('coin-val').innerText = coinsCount;
-                    document.getElementById('coin-display').style.color = '#00ff00';
+                coins.forEach(c => { if(c.visible && camera.position.distanceTo(c.position) < 3) { c.visible = false; coinsCount++; document.getElementById('coin-val').innerText = coinsCount; }});
+                if(chestGroup.visible && camera.position.distanceTo(chestGroup.position) < 3) {
+                    chestGroup.visible = false; coinsCount += 10; document.getElementById('coin-val').innerText = coinsCount;
+                    isLucky = true; document.getElementById('coin-display').style.color = '#00ff00';
                     setTimeout(() => { isLucky = false; document.getElementById('coin-display').style.color = '#ffd700'; }, 30000);
                 }
-
-                if(camera.position.distanceTo(new THREE.Vector3(0,0,-12)) < 5 && coinsCount > 0) {
+                if(camera.position.distanceTo(new THREE.Vector3(0,0,-10)) < 4 && coinsCount > 0) {
                     gameState = "CLAW"; document.exitPointerLock(); document.getElementById('game-info').style.display = 'block';
-                    camera.position.set(0, 4.0, -7.5); camera.lookAt(0, 3, -12);
+                    camera.position.set(0, 3.4, -6.5); camera.lookAt(0, 3.4, -10);
                 }
             }
         } else if(gameState === "CLAW" && !isClawDescending) {
-            if(e.code === 'ArrowLeft' && clawSystem.position.x > -1.45) clawSystem.position.x -= 0.04;
-            if(e.code === 'ArrowRight' && clawSystem.position.x < 1.45) clawSystem.position.x += 0.04;
-            if(e.code === 'ArrowUp' && clawSystem.position.z > -1.45) clawSystem.position.z -= 0.04;
-            if(e.code === 'ArrowDown' && clawSystem.position.z < 1.45) clawSystem.position.z += 0.04;
+            if(e.code === 'ArrowLeft' && clawSystem.position.x > -1.2) clawSystem.position.x -= 0.03;
+            if(e.code === 'ArrowRight' && clawSystem.position.x < 1.2) clawSystem.position.x += 0.03;
+            if(e.code === 'ArrowUp' && clawSystem.position.z > -1.2) clawSystem.position.z -= 0.03;
+            if(e.code === 'ArrowDown' && clawSystem.position.z < 1.2) clawSystem.position.z += 0.03;
             if(e.code === 'Space') startFishing();
             if(e.code === 'Escape') { gameState = "WALK"; document.getElementById('game-info').style.display = 'none'; camera.position.set(0, 1.7, -6); }
         }
@@ -307,71 +310,61 @@
     function startFishing() {
         isClawDescending = true; let stage = "DOWN";
         const interval = setInterval(() => {
-            if(stage === "DOWN") { clawOpen = 1; clawSystem.position.y -= 0.05; if(clawSystem.position.y <= 1.95) stage = "GRAB"; }
-            else if(stage === "GRAB") { clawOpen -= 0.1; if(clawOpen <= 0) { prizesInside.forEach(p => { if(p.visible && p.position.distanceTo(new THREE.Vector3(clawSystem.position.x, 1.55, clawSystem.position.z)) < 0.5) caughtPrize = p; }); stage = "UP"; } }
-            else if(stage === "UP") { clawSystem.position.y += 0.04; if(caughtPrize) caughtPrize.position.set(clawSystem.position.x, clawSystem.position.y - 0.45, clawSystem.position.z); if(clawSystem.position.y >= 4.0) stage = "DONE"; }
+            if(stage === "DOWN") { clawOpen = 1; clawSystem.position.y -= 0.04; if(clawSystem.position.y <= 1.75) stage = "GRAB"; }
+            else if(stage === "GRAB") { clawOpen -= 0.1; if(clawOpen <= 0) { prizesInside.forEach(p => { if(p.visible && p.position.distanceTo(new THREE.Vector3(clawSystem.position.x, 1.3, clawSystem.position.z)) < 0.45) caughtPrize = p; }); stage = "UP"; } }
+            else if(stage === "UP") { clawSystem.position.y += 0.03; if(caughtPrize) caughtPrize.position.set(clawSystem.position.x, clawSystem.position.y - 0.4, clawSystem.position.z); if(clawSystem.position.y >= 4.5) stage = "DONE"; }
             else {
-                if(caughtPrize) { caughtPrize.visible = false; prizesLeft -= (isLucky ? 2 : 1); document.getElementById('prizes-val').innerText = Math.max(0, prizesLeft); coinsCount--; document.getElementById('coin-val').innerText = coinsCount; if(prizesLeft <= 0) location.reload(); }
+                if(caughtPrize) { caughtPrize.visible = false; prizesLeft -= (isLucky ? 2 : 1); coinsCount--; 
+                    document.getElementById('coin-val').innerText = coinsCount; document.getElementById('prizes-val').innerText = Math.max(0, prizesLeft);
+                    caughtPrize = null; if(prizesLeft <= 0) endGame();
+                    else if(coinsCount <= 0) { gameState = "WALK"; document.getElementById('game-info').style.display = 'none'; camera.position.set(0, 1.7, -6); }
+                }
                 clawOpen = 1; clearInterval(interval); isClawDescending = false;
             }
         }, 20);
     }
 
+    function endGame() {
+        gameActive = false;
+        let finalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+        const scores = JSON.parse(localStorage.getItem('arcadeScores') || "[]");
+        scores.push({name: playerName, time: parseFloat(finalTime)});
+        localStorage.setItem('arcadeScores', JSON.stringify(scores));
+        updateLeaderboard();
+        document.exitPointerLock();
+        document.getElementById('final-stats').innerText = `${playerName} terminou em ${finalTime}s!`;
+        document.getElementById('end-screen').style.display = 'flex';
+        document.getElementById('game-info').style.display = 'none';
+        if(currentPlayerIndex < totalPlayers) { currentPlayerIndex++; document.getElementById('next-player-btn').innerText = "PRÓXIMO JOGADOR"; } 
+        else { document.getElementById('next-player-btn').innerText = "VER RESULTADO FINAL"; document.getElementById('next-player-btn').onclick = () => location.reload(); }
+    }
+
     function animate() {
-        requestAnimationFrame(animate);
+        requestAnimationFrame(animate); 
         pinchers.forEach(p => p.rotation.x = 0.8 * (1 - clawOpen));
-        
-        // ANIMAÇÃO PÁSSAROS
-        birds.forEach(b => { 
-            b.mesh.position.z += b.speed; 
-            b.mesh.position.y += Math.sin(Date.now() * 0.002) * 0.02;
-            if(b.mesh.position.z > 200) b.mesh.position.z = -200; 
-        });
-
-        // ANIMAÇÃO ANIMAIS
-        animals.forEach(a => {
-            a.stateTimer--;
-            if (a.stateTimer <= 0) {
-                a.state = a.state === 'idle' ? 'walking' : 'idle';
-                a.stateTimer = Math.random() * 200 + 100;
-                a.angle = Math.random() * Math.PI * 2;
-                a.currentSpeed = a.state === 'walking' ? a.baseSpeed : 0;
-            }
-            if (a.state === 'walking') {
-                a.mesh.position.x += Math.sin(a.angle) * a.currentSpeed;
-                a.mesh.position.z += Math.cos(a.angle) * a.currentSpeed;
-                a.mesh.rotation.y = a.angle + Math.PI;
-            }
-        });
-
+        birds.forEach(b => { b.mesh.position.z += b.speed; if(b.mesh.position.z > 150) b.mesh.position.z = -150; });
         if(gameActive) document.getElementById('timer-val').innerText = ((Date.now() - startTime) / 1000).toFixed(1);
         
         if(gameState === "WALK") {
-            velocityY -= 0.008; camera.position.y += velocityY;
+            velocityY -= 0.007; camera.position.y += velocityY;
             if(camera.position.y <= 1.7) { camera.position.y = 1.7; velocityY = 0; isGrounded = true; }
             platforms.forEach(p => {
                 const dx = Math.abs(camera.position.x - p.position.x), dz = Math.abs(camera.position.z - p.position.z);
-                if(dx < 2 && dz < 2 && camera.position.y >= p.position.y + 1.2 && camera.position.y <= p.position.y + 2 && velocityY <= 0) { camera.position.y = p.position.y + 1.8; velocityY = 0; isGrounded = true; }
+                if(dx < 1.8 && dz < 1.8 && camera.position.y >= p.position.y + 1.2 && camera.position.y <= p.position.y + 1.8 && velocityY <= 0) { camera.position.y = p.position.y + 1.7; velocityY = 0; isGrounded = true; }
             });
-            obstacles.forEach(o => { if(camera.position.distanceTo(o.position) < 1.5) { camera.position.set(0, 1.7, -6); velocityY = 0; } });
+            obstacles.forEach(o => { if(camera.position.distanceTo(o.position) < 1.2) { camera.position.set(0, 1.7, -6); velocityY = 0; } });
             
             if(document.pointerLockElement) {
                 const dir = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion); dir.y = 0; dir.normalize();
                 const side = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0), dir);
-                if (moveF) camera.position.addScaledVector(dir, 0.18); if (moveB) camera.position.addScaledVector(dir, -0.18);
-                if (moveL) camera.position.addScaledVector(side, 0.18); if (moveR) camera.position.addScaledVector(side, -0.18);
-                document.getElementById('prompt').style.display = (camera.position.distanceTo(new THREE.Vector3(0,0,-12)) < 5 || (chestGroup.visible && camera.position.distanceTo(chestGroup.position) < 4)) ? 'block' : 'none';
+                if (moveF) camera.position.addScaledVector(dir, 0.15); if (moveB) camera.position.addScaledVector(dir, -0.15);
+                if (moveL) camera.position.addScaledVector(side, 0.15); if (moveR) camera.position.addScaledVector(side, -0.15);
+                document.getElementById('prompt').style.display = (camera.position.distanceTo(new THREE.Vector3(0,0,-10)) < 4 || (chestGroup.visible && camera.position.distanceTo(chestGroup.position) < 3)) ? 'block' : 'none';
             }
         }
         renderer.render(scene, camera);
     }
     animate();
-
-    window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-    });
 </script>
 </body>
 </html>
