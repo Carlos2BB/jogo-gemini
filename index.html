@@ -64,8 +64,9 @@
     </div>
 
     <div id="end-screen">
-        <h1 style="color: #ffd700;">RODADA FINALIZADA!</h1>
+        <h1 style="color: #ffd700;" id="end-title">RODADA FINALIZADA!</h1>
         <p id="final-stats" style="font-size: 24px;"></p>
+        <p id="winner-announcement" style="font-size: 32px; color: #00ff00; font-weight: bold; display: none;"></p>
         <button id="next-player-btn" onclick="prepareNextTurn()">PRÓXIMO JOGADOR</button>
     </div>
 
@@ -199,6 +200,7 @@
     let coinsCount = 0, prizesLeft = 10, gameState = "SETUP", isClawDescending = false, caughtPrize = null;
     let startTime = 0, gameActive = false, velocityY = 0, isGrounded = true, isLucky = false;
     let moveF = false, moveB = false, moveL = false, moveR = false, yaw = 0, pitch = 0, clawOpen = 1;
+    let sessionScores = []; // Array temporário para a partida atual de vários jogadores
 
     window.resetRanking = () => { localStorage.removeItem('arcadeScores'); updateLeaderboard(); alert("Placar zerado!"); };
 
@@ -299,23 +301,43 @@
 
     function endGame() {
         gameActive = false;
-        let finalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+        let finalTime = parseFloat(((Date.now() - startTime) / 1000).toFixed(1));
+        
+        // Salva para o ranking permanente
         const scores = JSON.parse(localStorage.getItem('arcadeScores') || "[]");
-        scores.push({name: playerName, time: parseFloat(finalTime)});
+        scores.push({name: playerName, time: finalTime});
         localStorage.setItem('arcadeScores', JSON.stringify(scores));
+        
+        // Salva para a comparação da partida atual
+        sessionScores.push({name: playerName, time: finalTime});
+        
         updateLeaderboard();
         document.exitPointerLock();
 
+        const endScreen = document.getElementById('end-screen');
+        const nextBtn = document.getElementById('next-player-btn');
+        const winnerText = document.getElementById('winner-announcement');
+        const endTitle = document.getElementById('end-title');
+
         document.getElementById('final-stats').innerText = `${playerName} terminou em ${finalTime}s!`;
-        document.getElementById('end-screen').style.display = 'flex';
+        endScreen.style.display = 'flex';
         document.getElementById('game-info').style.display = 'none';
         
         if(currentPlayerIndex < totalPlayers) {
             currentPlayerIndex++;
-            document.getElementById('next-player-btn').innerText = "PRÓXIMO JOGADOR";
+            nextBtn.innerText = "PRÓXIMO JOGADOR";
+            winnerText.style.display = 'none';
         } else {
-            document.getElementById('next-player-btn').innerText = "VER RESULTADO FINAL";
-            document.getElementById('next-player-btn').onclick = () => location.reload();
+            // Se for o último jogador e houver mais de um, mostra o vencedor
+            if(totalPlayers > 1) {
+                sessionScores.sort((a, b) => a.time - b.time);
+                const winner = sessionScores[0];
+                endTitle.innerText = "FIM DA PARTIDA!";
+                winnerText.innerText = `VENCEDOR: ${winner.name} (${winner.time}s)`;
+                winnerText.style.display = 'block';
+            }
+            nextBtn.innerText = "REINICIAR TUDO";
+            nextBtn.onclick = () => location.reload();
         }
     }
 
