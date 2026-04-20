@@ -203,13 +203,41 @@
     chestGroup.position.set(platforms[14].position.x, platforms[14].position.y + 0.65, platforms[14].position.z);
     scene.add(chestGroup);
 
-    // Mão
+    // Mão e Faca
     const handGroup = new THREE.Group();
     const handMesh = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.25, 0.6), new THREE.MeshStandardMaterial({color: 0xffdbac}));
     handMesh.castShadow = true;
     handGroup.add(handMesh);
-    handGroup.position.set(0.6, -0.6, -1); 
-    camera.add(handGroup); scene.add(camera);
+
+    const knifeGroup = new THREE.Group();
+    const handleMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.9 });
+    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.35), handleMat);
+    handle.rotation.x = Math.PI / 2;
+    handle.position.z = -0.4;
+    knifeGroup.add(handle);
+
+    const bladeMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, metalness: 1.0, roughness: 0.1 });
+    const knifeShape = new THREE.Shape();
+    knifeShape.moveTo(0, 0);
+    knifeShape.lineTo(0.08, 0);
+    knifeShape.lineTo(0.08, 0.5);
+    knifeShape.lineTo(0.01, 0.6);
+    knifeShape.lineTo(0, 0.1);
+    knifeShape.lineTo(0, 0);
+    const bladeGeo = new THREE.ExtrudeGeometry(knifeShape, { depth: 0.01, bevelEnabled: false });
+    const blade = new THREE.Mesh(bladeGeo, bladeMat);
+    blade.rotation.x = -Math.PI / 2;
+    blade.rotation.z = Math.PI / 2;
+    blade.position.set(0.04, 0, -0.55);
+    knifeGroup.add(blade);
+
+    handGroup.add(knifeGroup);
+    
+    const handPosIdle = new THREE.Vector3(0.5, -0.5, -0.8);
+    const handPosHip = new THREE.Vector3(0.5, -1.8, -0.5); // Posição fora da tela
+    handGroup.position.copy(handPosIdle);
+    camera.add(handGroup);
+    scene.add(camera);
 
     // Máquina
     const machine = new THREE.Group();
@@ -237,7 +265,7 @@
     clawSystem.add(cable, clawHead); clawSystem.position.set(0, 5, 0); machine.add(clawSystem);
 
     // Nextbots
-    const monsterTexture = new THREE.TextureLoader().load('https://i.postimg.cc/28t3863D/Captura-de-tela-2026-04-19-235654.png');
+    const monsterTexture = new THREE.TextureLoader().load('https://i.postimg.cc/5jdjxKNx/Captura-de-tela-22-1-2026-141743.jpg');
     const monsters = [];
     for(let i=0; i<15; i++) {
         const monster = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 3.5), new THREE.MeshBasicMaterial({ map: monsterTexture, side: THREE.DoubleSide, transparent: true }));
@@ -250,6 +278,11 @@
     let moveF = false, moveB = false, moveL = false, moveR = false, isRunning = false;
     let yaw = 0, pitch = 0, clawOpen = 1, nbSpeed = 0.1, stamina = 100;
     const clawKeys = { left: false, right: false, up: false, down: false };
+    
+    // Lógica da Faca CORRIGIDA
+    let knifeEquipped = true;
+    let isKnifeAnimating = false;
+    let knifeAnimPhase = "IDLE"; // IDLE, DOWN, UP
 
     window.startGame = () => {
         const nameInput = document.getElementById('player-name');
@@ -263,6 +296,7 @@
         prizesInside.forEach((p, i) => { p.visible = i < prizesLeft; });
         monsters.forEach((m, i) => { if(i < nbCount) { m.position.set((Math.random()-0.5)*150, 1.75, (Math.random()-0.5)*150); m.visible = true; } else { m.visible = false; }});
         gameState = "WALK"; document.body.requestPointerLock(); updateLeaderboard();
+        document.getElementById('prizes-val').innerText = prizesLeft;
     };
 
     function updateLeaderboard() {
@@ -287,10 +321,18 @@
             if(e.code === 'KeyE') {
                 coins.forEach(c => { if(c.visible && camera.position.distanceTo(c.position) < 3) { c.visible = false; coinsCount++; document.getElementById('coin-val').innerText = coinsCount; }});
                 if(chestGroup.visible && camera.position.distanceTo(chestGroup.position) < 3) { chestGroup.visible = false; coinsCount += 10; document.getElementById('coin-val').innerText = coinsCount; }
-                if(camera.position.distanceTo(new THREE.Vector3(0,0,-10)) < 4 && coinsCount > 0) {
-                    gameState = "CLAW"; document.exitPointerLock(); document.getElementById('game-info').style.display = 'block';
+                
+                const distToMachine = camera.position.distanceTo(new THREE.Vector3(0, 1.7, -10));
+                if(distToMachine < 4 && coinsCount > 0) {
+                    gameState = "CLAW"; document.exitPointerLock(); 
+                    document.getElementById('game-info').style.display = 'block';
                     camera.position.set(0, 4.5, -6.5); camera.lookAt(0, 2, -10);
+                    handGroup.position.copy(handPosHip);
                 }
+            }
+            // CTRL PARA GUARDAR/PEGAR FACA
+            if((e.code === 'ControlLeft' || e.code === 'ControlRight') && knifeAnimPhase === "IDLE") {
+                knifeAnimPhase = "DOWN";
             }
         } else if (gameState === "CLAW") {
             if(e.code === 'ArrowLeft') clawKeys.left = true;
@@ -322,8 +364,17 @@
         isClawDescending = true; let stage = "DOWN";
         const interval = setInterval(() => {
             if(stage === "DOWN") { clawOpen = 1; clawSystem.position.y -= 0.05; if(clawSystem.position.y <= 1.8) stage = "GRAB"; }
-            else if(stage === "GRAB") { clawOpen -= 0.1; if(clawOpen <= 0) { prizesInside.forEach(p => { if(p.visible && p.position.distanceTo(new THREE.Vector3(clawSystem.position.x, 1.5, clawSystem.position.z)) < 0.5) caughtPrize = p; }); stage = "UP"; } }
-            else if(stage === "UP") { clawSystem.position.y += 0.04; if(caughtPrize) caughtPrize.position.set(clawSystem.position.x, clawSystem.position.y - 0.5, clawSystem.position.z); if(clawSystem.position.y >= 5) stage = "DONE"; }
+            else if(stage === "GRAB") { clawOpen -= 0.1; if(clawOpen <= 0) { 
+                prizesInside.forEach(p => { 
+                    if(p.visible && p.position.distanceTo(new THREE.Vector3(clawSystem.position.x, 1.5, clawSystem.position.z)) < 0.6) caughtPrize = p; 
+                }); 
+                stage = "UP"; 
+            } }
+            else if(stage === "UP") { 
+                clawSystem.position.y += 0.04; 
+                if(caughtPrize) caughtPrize.position.set(clawSystem.position.x, clawSystem.position.y - 0.5, clawSystem.position.z); 
+                if(clawSystem.position.y >= 5) stage = "DONE"; 
+            }
             else {
                 if(caughtPrize) { caughtPrize.visible = false; prizesLeft--; document.getElementById('prizes-val').innerText = Math.max(0, prizesLeft); caughtPrize = null; if(prizesLeft <= 0) endGame(); }
                 coinsCount--; document.getElementById('coin-val').innerText = coinsCount;
@@ -360,6 +411,31 @@
         }
         pinchers.forEach(p => { p.rotation.z = clawOpen * 0.5; });
         if(gameState === "WALK") {
+            
+            // ANIMAÇÃO DE GUARDAR/PEGAR FACA
+            if(knifeAnimPhase === "DOWN") {
+                handGroup.position.lerp(handPosHip, 0.15);
+                if(handGroup.position.distanceTo(handPosHip) < 0.05) {
+                    knifeEquipped = !knifeEquipped;
+                    knifeGroup.visible = knifeEquipped;
+                    knifeAnimPhase = "UP";
+                }
+            } else if(knifeAnimPhase === "UP") {
+                handGroup.position.lerp(handPosIdle, 0.15);
+                if(handGroup.position.distanceTo(handPosIdle) < 0.05) {
+                    handGroup.position.copy(handPosIdle);
+                    knifeAnimPhase = "IDLE";
+                }
+            } else {
+                // Movimento Idle/Bobbing
+                if((moveF || moveB || moveL || moveR) && isGrounded) {
+                    const bob = Math.sin(Date.now() * (isRunning ? 0.015 : 0.01));
+                    handGroup.position.y = handPosIdle.y + bob * 0.02;
+                } else {
+                    handGroup.position.lerp(handPosIdle, 0.1);
+                }
+            }
+
             velocityY -= 0.01; camera.position.y += velocityY;
             if(camera.position.y <= 1.7) { camera.position.y = 1.7; velocityY = 0; isGrounded = true; }
             platforms.forEach(p => {
@@ -383,7 +459,9 @@
                 const side = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0), dir);
                 if (moveF) camera.position.addScaledVector(dir, currentSpeed); if (moveB) camera.position.addScaledVector(dir, -currentSpeed);
                 if (moveL) camera.position.addScaledVector(side, currentSpeed); if (moveR) camera.position.addScaledVector(side, -currentSpeed);
-                document.getElementById('prompt').style.display = (camera.position.distanceTo(new THREE.Vector3(0,0,-10)) < 4) ? 'block' : 'none';
+                
+                const distToMachine = camera.position.distanceTo(new THREE.Vector3(0, 1.7, -10));
+                document.getElementById('prompt').style.display = (distToMachine < 4) ? 'block' : 'none';
             }
         }
         renderer.render(scene, camera);
