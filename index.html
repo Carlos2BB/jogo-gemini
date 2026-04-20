@@ -79,13 +79,12 @@
         </select>
 
         <button onclick="startGame()">INICIAR JOGO</button>
-        <button onclick="resetRanking()" style="background: #ff4444; color: white; margin-top: 30px; font-size: 12px;">LIMPAR TODO O PLACAR</button>
     </div>
 
     <div id="end-screen">
         <h1 style="color: #ffd700;">RODADA FINALIZADA!</h1>
         <p id="final-stats" style="font-size: 24px;"></p>
-        <button id="next-player-btn" onclick="prepareNextTurn()">JOGAR NOVAMENTE</button>
+        <button onclick="location.reload()">JOGAR NOVAMENTE</button>
     </div>
 
     <div id="leaderboard">
@@ -183,7 +182,7 @@
         c.rotation.x = Math.PI/2; c.castShadow = true; scene.add(c); coins.push(c);
     }
 
-    // Parkour - REFORMULADO PARA MELHOR COLISÃO
+    // Parkour
     const platforms = []; const obstacles = [];
     const platMat = new THREE.MeshStandardMaterial({color: 0x555555, roughness: 0.8});
     for(let i=0; i<15; i++) {
@@ -238,7 +237,7 @@
     clawSystem.add(cable, clawHead); clawSystem.position.set(0, 5, 0); machine.add(clawSystem);
 
     // Nextbots
-    const monsterTexture = new THREE.TextureLoader().load('https://i.postimg.cc/5jdjxKNx/Captura-de-tela-22-1-2026-141743.jpg');
+    const monsterTexture = new THREE.TextureLoader().load('https://i.postimg.cc/28t3863D/Captura-de-tela-2026-04-19-235654.png');
     const monsters = [];
     for(let i=0; i<15; i++) {
         const monster = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 3.5), new THREE.MeshBasicMaterial({ map: monsterTexture, side: THREE.DoubleSide, transparent: true }));
@@ -249,8 +248,8 @@
     let playerName = "", coinsCount = 0, prizesLeft = 10, gameState = "SETUP", isClawDescending = false, caughtPrize = null;
     let startTime = 0, gameActive = false, velocityY = 0, isGrounded = true;
     let moveF = false, moveB = false, moveL = false, moveR = false, isRunning = false;
-    let yaw = 0, pitch = 0, clawOpen = 1, nbSpeed = 0.1;
-    let stamina = 100;
+    let yaw = 0, pitch = 0, clawOpen = 1, nbSpeed = 0.1, stamina = 100;
+    const clawKeys = { left: false, right: false, up: false, down: false };
 
     window.startGame = () => {
         const nameInput = document.getElementById('player-name');
@@ -290,9 +289,16 @@
                 if(chestGroup.visible && camera.position.distanceTo(chestGroup.position) < 3) { chestGroup.visible = false; coinsCount += 10; document.getElementById('coin-val').innerText = coinsCount; }
                 if(camera.position.distanceTo(new THREE.Vector3(0,0,-10)) < 4 && coinsCount > 0) {
                     gameState = "CLAW"; document.exitPointerLock(); document.getElementById('game-info').style.display = 'block';
-                    camera.position.set(0, 3.5, -6.5); camera.lookAt(0, 3.5, -10);
+                    camera.position.set(0, 4.5, -6.5); camera.lookAt(0, 2, -10);
                 }
             }
+        } else if (gameState === "CLAW") {
+            if(e.code === 'ArrowLeft') clawKeys.left = true;
+            if(e.code === 'ArrowRight') clawKeys.right = true;
+            if(e.code === 'ArrowUp') clawKeys.up = true;
+            if(e.code === 'ArrowDown') clawKeys.down = true;
+            if(e.code === 'Space') startFishing();
+            if(e.code === 'Escape') exitMachine();
         }
     });
 
@@ -300,21 +306,29 @@
         if(e.code === 'KeyW') moveF = false; if(e.code === 'KeyS') moveB = false; 
         if(e.code === 'KeyA') moveL = false; if(e.code === 'KeyD') moveR = false; 
         if(e.code === 'ShiftLeft') isRunning = false;
+        if(e.code === 'ArrowLeft') clawKeys.left = false;
+        if(e.code === 'ArrowRight') clawKeys.right = false;
+        if(e.code === 'ArrowUp') clawKeys.up = false;
+        if(e.code === 'ArrowDown') clawKeys.down = false;
     });
 
+    function exitMachine() {
+        gameState = "WALK"; document.getElementById('game-info').style.display = 'none';
+        document.body.requestPointerLock(); camera.position.set(0, 1.7, -6);
+    }
+
     function startFishing() {
-        if(isClawDescending) return;
+        if(isClawDescending || coinsCount <= 0) return;
         isClawDescending = true; let stage = "DOWN";
         const interval = setInterval(() => {
             if(stage === "DOWN") { clawOpen = 1; clawSystem.position.y -= 0.05; if(clawSystem.position.y <= 1.8) stage = "GRAB"; }
             else if(stage === "GRAB") { clawOpen -= 0.1; if(clawOpen <= 0) { prizesInside.forEach(p => { if(p.visible && p.position.distanceTo(new THREE.Vector3(clawSystem.position.x, 1.5, clawSystem.position.z)) < 0.5) caughtPrize = p; }); stage = "UP"; } }
             else if(stage === "UP") { clawSystem.position.y += 0.04; if(caughtPrize) caughtPrize.position.set(clawSystem.position.x, clawSystem.position.y - 0.5, clawSystem.position.z); if(clawSystem.position.y >= 5) stage = "DONE"; }
             else {
-                if(caughtPrize) { caughtPrize.visible = false; prizesLeft--; coinsCount--; 
-                    document.getElementById('coin-val').innerText = coinsCount; document.getElementById('prizes-val').innerText = Math.max(0, prizesLeft);
-                    caughtPrize = null; if(prizesLeft <= 0) endGame();
-                }
+                if(caughtPrize) { caughtPrize.visible = false; prizesLeft--; document.getElementById('prizes-val').innerText = Math.max(0, prizesLeft); caughtPrize = null; if(prizesLeft <= 0) endGame(); }
+                coinsCount--; document.getElementById('coin-val').innerText = coinsCount;
                 clearInterval(interval); isClawDescending = false;
+                if(coinsCount <= 0) exitMachine();
             }
         }, 20);
     }
@@ -332,50 +346,37 @@
 
     function animate() {
         requestAnimationFrame(animate); 
-        
         if(gameActive) {
             document.getElementById('timer-val').innerText = ((Date.now() - startTime) / 1000).toFixed(1);
-            if(isRunning && (moveF || moveB || moveL || moveR) && stamina > 0) {
-                stamina -= 0.2; if(stamina < 0) stamina = 0;
-            } else { if(stamina < 100) stamina += 0.15; }
+            if(isRunning && (moveF || moveB || moveL || moveR) && stamina > 0) { stamina -= 0.2; if(stamina < 0) stamina = 0; } else { if(stamina < 100) stamina += 0.15; }
             document.getElementById('stamina-bar').style.width = stamina + "%";
         }
-
+        if(gameState === "CLAW" && !isClawDescending) {
+            const mSpeed = 0.05;
+            if(clawKeys.left && clawSystem.position.x > -1.5) clawSystem.position.x -= mSpeed;
+            if(clawKeys.right && clawSystem.position.x < 1.5) clawSystem.position.x += mSpeed;
+            if(clawKeys.up && clawSystem.position.z > -1.5) clawSystem.position.z -= mSpeed;
+            if(clawKeys.down && clawSystem.position.z < 1.5) clawSystem.position.z += mSpeed;
+        }
+        pinchers.forEach(p => { p.rotation.z = clawOpen * 0.5; });
         if(gameState === "WALK") {
             velocityY -= 0.01; camera.position.y += velocityY;
-            
-            // Colisão com o Chão
             if(camera.position.y <= 1.7) { camera.position.y = 1.7; velocityY = 0; isGrounded = true; }
-            
-            // Colisão com Plataformas (Sistema Melhorado)
             platforms.forEach(p => {
-                const dx = Math.abs(camera.position.x - p.position.x);
-                const dz = Math.abs(camera.position.z - p.position.z);
+                const dx = Math.abs(camera.position.x - p.position.x), dz = Math.abs(camera.position.z - p.position.z);
                 const playerBottom = camera.position.y - 1.7;
-                
-                // Verifica se está sobre a área da plataforma (4x4)
                 if(dx < 2.2 && dz < 2.2) {
                     const platTop = p.position.y + 0.25;
-                    // Se o jogador estiver caindo e perto do topo da plataforma
-                    if(velocityY <= 0 && playerBottom >= platTop - 0.2 && playerBottom <= platTop + 0.3) {
-                        camera.position.y = platTop + 1.7;
-                        velocityY = 0;
-                        isGrounded = true;
-                    }
+                    if(velocityY <= 0 && playerBottom >= platTop - 0.2 && playerBottom <= platTop + 0.3) { camera.position.y = platTop + 1.7; velocityY = 0; isGrounded = true; }
                 }
             });
-
             obstacles.forEach(o => { if(camera.position.distanceTo(o.position) < 1.3) camera.position.set(0, 1.7, -6); });
-
-            monsters.forEach(m => {
-                if(m.visible) {
-                    m.lookAt(camera.position.x, 1.75, camera.position.z);
-                    const dir = new THREE.Vector3().subVectors(camera.position, m.position).normalize();
-                    m.position.x += dir.x * nbSpeed; m.position.z += dir.z * nbSpeed;
-                    if(m.position.distanceTo(camera.position) < 1.8) camera.position.set(0, 1.7, -6);
-                }
-            });
-
+            monsters.forEach(m => { if(m.visible) {
+                m.lookAt(camera.position.x, 1.75, camera.position.z);
+                const dir = new THREE.Vector3().subVectors(camera.position, m.position).normalize();
+                m.position.x += dir.x * nbSpeed; m.position.z += dir.z * nbSpeed;
+                if(m.position.distanceTo(camera.position) < 1.8) camera.position.set(0, 1.7, -6);
+            }});
             if(document.pointerLockElement) {
                 const currentSpeed = (isRunning && stamina > 0) ? 0.32 : 0.18;
                 const dir = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion); dir.y = 0; dir.normalize();
