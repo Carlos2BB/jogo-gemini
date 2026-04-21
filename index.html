@@ -23,11 +23,13 @@ button{padding:10px 20px;font-size:20px;cursor:pointer;background:#ffd700;border
 .inv-slot.active{border-color:#ffd700;color:#fff;background:rgba(255,215,0,0.2)}
 #game-chat {position: absolute;bottom: 20px;left: 20px;width: 300px;height: 30px;font-size: 16px;background: rgba(0,0,0,0.8);color: #00ff88;border: 2px solid #00ff88;outline: none;z-index: 200;padding: 5px 10px;display: none;border-radius: 5px;pointer-events: auto;}
 #timer-lock {position: absolute;top: 60%;left: 50%;transform: translate(-50%, -50%);font-size: 40px;color: #ff3333;font-weight: bold;display: none;text-shadow: 2px 2px 5px #000;}
+#fly-status {position: absolute; top: 150px; left: 20px; color: #00ff88; font-weight: bold; font-size: 14px; display: none; text-shadow: 1px 1px 2px #000;}
 </style>
 </head>
 <body>
 <input type="text" id="game-chat" placeholder="Digite um comando...">
 <div id="timer-lock">30</div>
+<div id="fly-status">MODO VOO ATIVO</div>
 
 <div id="setup-screen">
     <h1 style="color:#ffd700;">ARCADE PARK CHALLENGE</h1>
@@ -169,6 +171,7 @@ const monTexPolitica=new THREE.TextureLoader().load('https://i.postimg.cc/4NvxyJ
 for(let i=0;i<15;i++){const m=new THREE.Mesh(new THREE.PlaneGeometry(2.5,3.5),new THREE.MeshBasicMaterial({map:monTexNormal,side:THREE.DoubleSide,transparent:true}));m.visible=false;m.stunnedUntil=0;scene.add(m);monsters.push(m)}
 
 let pName="",coinsCount=0,prizesLeft=10,gameState="SETUP",isClawDescending=false,caughtPrize=null,startTime=0,gameActive=false,velocityY=0,isGrounded=true,moveF=false,moveB=false,moveL=false,moveR=false,isRunning=false,yaw=0,pitch=0,clawOpen=1,nbSpeed=0.1,stamina=100,ammo=5,currentEquip="NONE",nextEquip="NONE",equipAnimPhase="IDLE", botsPaused = false;
+let isFlying = false, lastSpacePress = 0; // Novos controles de voo
 const clawKeys={left:false,right:false,up:false,down:false};
 let hasKnife=false, hasGun=false, hasBoots=false;
 let maquinaBloqueada = true, tempoCadeado = 30, segurandoR = false;
@@ -205,6 +208,12 @@ function updateEquipVisuals(){
     if(hasBoots) { document.getElementById('slot-boots').style.borderColor="#00ff88"; document.getElementById('slot-boots').style.color="#00ff88"; }
 }
 
+function toggleFly(force) {
+    isFlying = force !== undefined ? force : !isFlying;
+    velocityY = 0;
+    document.getElementById('fly-status').style.display = isFlying ? 'block' : 'none';
+}
+
 function shoot(){if(currentEquip!=="GUN"||ammo<=0||gameState!=="WALK"||!document.pointerLockElement)return;ammo--;document.getElementById('ammo-val').innerText=ammo;muzzleFlash.material.opacity=1;shotLight.intensity=5;handGroup.position.z+=0.25;setTimeout(()=>{muzzleFlash.material.opacity=0;shotLight.intensity=0},60);const r=new THREE.Raycaster();r.setFromCamera(new THREE.Vector2(0,0),camera);const inters=r.intersectObjects(monsters);if(inters.length>0)inters[0].object.stunnedUntil=Date.now()+5000}
 function updateLeaderboard(){const s=JSON.parse(localStorage.getItem('arcadeScores')||"[]");document.getElementById('score-list').innerHTML=s.sort((a,b)=>a.time-b.time).slice(0,5).map(x=>`<div>${x.name}: ${x.time}s</div>`).join('')}
 
@@ -214,24 +223,20 @@ document.addEventListener('mousemove',e=>{if(document.pointerLockElement&&gameSt
 chatInput.addEventListener('keydown', (e) => {
     if(e.key === 'Enter') {
         const cmd = chatInput.value.trim().toLowerCase().replace(/\s+/g, ' ');
-        
         if(cmd === 'itens = todos') { airdrops.forEach(a => { a.userData.active = true; a.visible = true; a.position.y = 0.9; }); } 
         else if (cmd === 'nextbot = pare') { botsPaused = true; } 
         else if (cmd === 'nextbot = ande') { botsPaused = false; } 
+        else if (cmd === 'voar = eu') { toggleFly(true); }
+        else if (cmd === 'parar de voar = eu') { toggleFly(false); }
         else if (cmd === 'nextbot = lula e bolsonaro') { monsters.forEach(m => m.material.map = monTexPolitica); } 
         else if (cmd === 'nextbot = foto normal') { monsters.forEach(m => m.material.map = monTexNormal); } 
-        // Comandos de Escala Melhorados
         else if (cmd === 'nextbot = tamanho 50x') {
-            nbScale = 50;
-            monsters.forEach(m => { m.scale.set(nbScale, nbScale, nbScale); m.position.y = (3.5 * nbScale) / 2; });
+            nbScale = 50; monsters.forEach(m => { m.scale.set(nbScale, nbScale, nbScale); m.position.y = (3.5 * nbScale) / 2; });
         } else if (cmd === 'nextbot = tamanho -50x') {
-            nbScale = 0.1; // Bem pequenininho
-            monsters.forEach(m => { m.scale.set(nbScale, nbScale, nbScale); m.position.y = (3.5 * nbScale) / 2; });
+            nbScale = 0.1; monsters.forEach(m => { m.scale.set(nbScale, nbScale, nbScale); m.position.y = (3.5 * nbScale) / 2; });
         } else if (cmd === 'nextbot = tamanho normal') {
-            nbScale = 1;
-            monsters.forEach(m => { m.scale.set(nbScale, nbScale, nbScale); m.position.y = 1.75; });
+            nbScale = 1; monsters.forEach(m => { m.scale.set(nbScale, nbScale, nbScale); m.position.y = 1.75; });
         }
-        
         chatInput.value = ''; chatInput.style.display = 'none'; chatInput.blur();
         if(gameActive) document.body.requestPointerLock();
     }
@@ -247,7 +252,17 @@ document.addEventListener('keydown',e=>{
     if(document.activeElement === chatInput) return;
     if(gameState==="WALK"){
         if(e.code==='KeyW')moveF=true;if(e.code==='KeyS')moveB=true;if(e.code==='KeyA')moveL=true;if(e.code==='KeyD')moveR=true;
-        if(e.code==='ShiftLeft')isRunning=true;if(e.code==='Space'&&isGrounded){velocityY=0.22;isGrounded=false}
+        if(e.code==='ShiftLeft')isRunning=true;
+        
+        if(e.code==='Space'){
+            // Lógica Double Space
+            let now = Date.now();
+            if(now - lastSpacePress < 300) { toggleFly(); }
+            lastSpacePress = now;
+            
+            if(!isFlying && isGrounded){velocityY=0.22;isGrounded=false}
+        }
+
         if(e.code==='KeyR' && maquinaBloqueada && camera.position.distanceTo(new THREE.Vector3(0, 1.2, -7.4)) < 3){
             if(currentEquip === "KNIFE") { desbloquearMaquina(); } 
             else { segurandoR = true; document.getElementById('timer-lock').style.display = 'block'; }
@@ -286,9 +301,25 @@ function endGame(){gameActive=false;let ft=((Date.now()-startTime)/1000).toFixed
 function animate(){requestAnimationFrame(animate);if(gameActive){let curT=Date.now()-startTime;document.getElementById('timer-val').innerText=(curT/1000).toFixed(1);
 if(isRunning&&(moveF||moveB||moveL||moveR)&&stamina>0){stamina-=0.2}else if(stamina<100)stamina+=0.15;document.getElementById('stamina-bar').style.width=Math.max(0,stamina)+"%";
 airdrops.forEach(a=>{if(!a.userData.active && curT >= a.userData.spawnAt){a.userData.active = true; a.visible = true;}if(a.userData.active){if(a.position.y > 0.9){a.position.y += a.userData.velocity;}else{a.position.y = 0.9; a.children[1].visible=false; a.children.slice(2).forEach(l=>l.visible=false);}}});}
-if(gameState==="CLAW"&&!isClawDescending){const s=0.05;if(clawKeys.left&&clawSystem.position.x>-1.5)clawSystem.position.x-=s;if(clawKeys.right&&clawSystem.position.x<1.5)clawSystem.position.x+=s;if(clawKeys.up&&clawSystem.position.z>-1.5)clawSystem.position.z-=s;if(clawKeys.down&&clawSystem.position.z<1.5)clawSystem.position.z+=s}pinchers.forEach(p=>{p.rotation.z=clawOpen*0.5});if(gameState==="WALK"){if(equipAnimPhase==="DOWN"){handGroup.position.lerp(handPosHip,0.15);if(handGroup.position.distanceTo(handPosHip)<0.05){currentEquip=nextEquip;updateEquipVisuals();equipAnimPhase="UP"}}else if(equipAnimPhase==="UP"){handGroup.position.lerp(handPosIdle,0.15);if(handGroup.position.distanceTo(handPosIdle)<0.05){handGroup.position.copy(handPosIdle);equipAnimPhase="IDLE"}}else if((moveF||moveB||moveL||moveR)&&isGrounded){handGroup.position.y=handPosIdle.y+Math.sin(Date.now()*(isRunning?0.015:0.01))*0.02;handGroup.position.lerp(handPosIdle,0.1)}else handGroup.position.lerp(handPosIdle,0.12);velocityY-=0.01;camera.position.y+=velocityY;if(camera.position.y<=1.7){camera.position.y=1.7;velocityY=0;isGrounded=true}else isGrounded=false;
+if(gameState==="CLAW"&&!isClawDescending){const s=0.05;if(clawKeys.left&&clawSystem.position.x>-1.5)clawSystem.position.x-=s;if(clawKeys.right&&clawSystem.position.x<1.5)clawSystem.position.x+=s;if(clawKeys.up&&clawSystem.position.z>-1.5)clawSystem.position.z-=s;if(clawKeys.down&&clawSystem.position.z<1.5)clawSystem.position.z+=s}pinchers.forEach(p=>{p.rotation.z=clawOpen*0.5});if(gameState==="WALK"){if(equipAnimPhase==="DOWN"){handGroup.position.lerp(handPosHip,0.15);if(handGroup.position.distanceTo(handPosHip)<0.05){currentEquip=nextEquip;updateEquipVisuals();equipAnimPhase="UP"}}else if(equipAnimPhase==="UP"){handGroup.position.lerp(handPosIdle,0.15);if(handGroup.position.distanceTo(handPosIdle)<0.05){handGroup.position.copy(handPosIdle);equipAnimPhase="IDLE"}}else if((moveF||moveB||moveL||moveR)&&isGrounded&&!isFlying){handGroup.position.y=handPosIdle.y+Math.sin(Date.now()*(isRunning?0.015:0.01))*0.02;handGroup.position.lerp(handPosIdle,0.1)}else handGroup.position.lerp(handPosIdle,0.12);
+
+// LÓGICA DE MOVIMENTO E GRAVIDADE
+if(!isFlying) {
+    velocityY-=0.01;
+    camera.position.y+=velocityY;
+    if(camera.position.y<=1.7){camera.position.y=1.7;velocityY=0;isGrounded=true}else isGrounded=false;
+} else {
+    isGrounded = false;
+    if(moveF || moveB || moveL || moveR) { /* Movimento de voo via chat input já lida com direções */ }
+    // Voo vertical
+    if(lastSpacePress && Date.now() - lastSpacePress < 1000) { // Se estiver no modo voo
+       const flyKey = document.querySelector(':focus') ? null : (window.event?.code || "");
+       // Acesso direto via verificação de tecla ativa no loop
+    }
+}
+
 if(segurandoR && maquinaBloqueada){ tempoCadeado -= 0.016; document.getElementById('timer-lock').innerText = Math.ceil(tempoCadeado); if(tempoCadeado <= 0) desbloquearMaquina(); }
-if(hasBoots){platforms.forEach(p=>{if(Math.abs(camera.position.x-p.position.x)<2.1&&Math.abs(camera.position.z-p.position.z)<2.1){const pt=p.position.y+0.25;if(velocityY<=0&&camera.position.y-1.7>=pt-0.5&&camera.position.y-1.7<=pt+0.1){camera.position.y=pt+1.7;velocityY=0;isGrounded=true}}});}
+if(hasBoots && !isFlying){platforms.forEach(p=>{if(Math.abs(camera.position.x-p.position.x)<2.1&&Math.abs(camera.position.z-p.position.z)<2.1){const pt=p.position.y+0.25;if(velocityY<=0&&camera.position.y-1.7>=pt-0.5&&camera.position.y-1.7<=pt+0.1){camera.position.y=pt+1.7;velocityY=0;isGrounded=true}}});}
 obstacles.forEach(o=>{if(camera.position.distanceTo(o.position)<1.3)camera.position.set(0,1.7,-6)});
 
 monsters.forEach(m=>{
@@ -299,21 +330,47 @@ monsters.forEach(m=>{
                 const d=new THREE.Vector3().subVectors(camera.position,m.position).normalize();
                 m.position.x+=d.x*nbSpeed;
                 m.position.z+=d.z*nbSpeed;
+                // Nextbot tenta subir se você estiver voando baixo
+                if(isFlying && m.position.distanceTo(camera.position) < 10) m.position.y = THREE.MathUtils.lerp(m.position.y, camera.position.y, 0.02);
+                else m.position.y = THREE.MathUtils.lerp(m.position.y, (3.5 * nbScale) / 2, 0.1);
             }
         }
-        // Colisão dinâmica baseada na escala
         const hitRange = 1.8 * nbScale;
-        if(m.position.distanceTo(camera.position) < hitRange) camera.position.set(0,1.7,-6);
+        if(m.position.distanceTo(camera.position) < hitRange) { camera.position.set(0,1.7,-6); if(isFlying) toggleFly(false); }
     }
 });
 
-if(document.pointerLockElement){const cs=(isRunning&&stamina>0)?0.32:0.18;const d=new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);d.y=0;d.normalize();const s=new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0),d);if(moveF)camera.position.addScaledVector(d,cs);if(moveB)camera.position.addScaledVector(d,-cs);if(moveL)camera.position.addScaledVector(s,cs);if(moveR)camera.position.addScaledVector(s,-cs);
+if(document.pointerLockElement){
+    const baseS = isFlying ? 0.6 : (isRunning&&stamina>0 ? 0.32 : 0.18);
+    const d=new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
+    if(!isFlying) d.y=0; d.normalize();
+    const s=new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0),d);
+    if(moveF)camera.position.addScaledVector(d,baseS);if(moveB)camera.position.addScaledVector(d,-baseS);if(moveL)camera.position.addScaledVector(s,baseS);if(moveR)camera.position.addScaledVector(s,-baseS);
+    
+    // Subir e Descer no voo
+    if(isFlying) {
+        if(moveF || moveB || moveL || moveR) {} // Já movido acima
+        // Espaço sobe, Shift desce
+        const keys = window.keysPressed || {};
+        // Gambiarra rápida para detectar teclas seguradas sem bagunçar o chat
+        if(moveF && !isFlying) {} // Placeholder
+    }
+
 let nearObj = false; 
 if(maquinaBloqueada && camera.position.distanceTo(new THREE.Vector3(0, 1.2, -7.4)) < 3) { document.getElementById('prompt').innerText="Segure [R] para desbloquear cadeado"; nearObj = true; } 
 else if(!maquinaBloqueada && camera.position.distanceTo(new THREE.Vector3(0,1.7,-10))<4) { document.getElementById('prompt').innerText="Pressione [E] para a Máquina"; nearObj=true; }
 if(chestGroup.visible && camera.position.distanceTo(chestGroup.position)<4){document.getElementById('prompt').innerText="[E] Abrir Baú"; nearObj=true;}
 airdrops.forEach(a=>{if(a.userData.active && !a.userData.opened && camera.position.distanceTo(a.position)<5){document.getElementById('prompt').innerText="[E] Abrir Airdrop ("+a.userData.item+")"; nearObj=true;}});
 document.getElementById('prompt').style.display=nearObj?'block':'none'}}renderer.render(scene,camera)}animate();
+
+// Listener auxiliar para teclas seguradas no voo
+window.keysPressed = {};
+document.addEventListener('keydown', e => { 
+    window.keysPressed[e.code] = true; 
+    if(isFlying && e.code === 'Space') camera.position.y += 0.4;
+    if(isFlying && e.code === 'ShiftLeft') camera.position.y -= 0.4;
+});
+document.addEventListener('keyup', e => { window.keysPressed[e.code] = false; });
 </script>
 </body>
 </html>
